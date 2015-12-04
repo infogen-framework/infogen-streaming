@@ -1,7 +1,6 @@
 package com.infogen.yarn.application_master;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.Map;
@@ -16,19 +15,16 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.util.Shell;
 
-import com.infogen.yarn.Constants;
-import com.infogen.yarn.Log4jPropertyHelper;
-
 /**
  * @author larry/larrylv@outlook.com/创建时间 2015年12月3日 下午3:58:44
  * @since 1.0
  * @version 1.0
  */
 public class ApplicationMaster_Configuration {
-	private static final Log LOG = LogFactory.getLog(ApplicationMaster.class);
+	private static final Log LOGGER = LogFactory.getLog(ApplicationMaster.class);
 	public Integer numTotalContainers = 1;
 	// Memory to request for the container on which the command will run
-	public Integer containerMemory = 10;
+	public Integer containerMemory = 512;
 	// VirtualCores to request for the container on which the command will run
 	public Integer containerVirtualCores = 1;
 	// Priority of the request
@@ -39,9 +35,14 @@ public class ApplicationMaster_Configuration {
 
 	public ApplicationMaster_Configuration(String[] args) throws ParseException {
 		if (args.length == 0) {
-			LOG.error("No args specified for client to initialize");
+			LOGGER.error("#没有设置参数");
 			printUsage(opts);
 			System.exit(-1);
+		}
+
+		LOGGER.info("args=");
+		for (String string : args) {
+			LOGGER.info(string);
 		}
 
 		CommandLine cliParser = new GnuParser().parse(opts, args);
@@ -51,38 +52,25 @@ public class ApplicationMaster_Configuration {
 			System.exit(0);
 		}
 
-		// Check whether customer log4j.properties file exists
-		if (new File(Constants.LOG4J_PATH).exists()) {
-			try {
-				Log4jPropertyHelper.updateLog4jConfiguration(ApplicationMaster.class, Constants.LOG4J_PATH);
-			} catch (Exception e) {
-				LOG.warn("Can not set up custom log4j properties. " + e);
-			}
-		}
-
 		if (cliParser.hasOption("debug")) {
 			dumpOutDebugInfo();
 		}
 
-		containerMemory = Integer.parseInt(cliParser.getOptionValue("container_memory", "10"));
+		containerMemory = Integer.parseInt(cliParser.getOptionValue("container_memory", "512"));
 		containerVirtualCores = Integer.parseInt(cliParser.getOptionValue("container_vcores", "1"));
 		numTotalContainers = Integer.parseInt(cliParser.getOptionValue("num_containers", "1"));
 		if (numTotalContainers == 0) {
-			throw new IllegalArgumentException("Cannot run distributed shell with no containers");
+			throw new IllegalArgumentException("#containers 不能小于1");
 		}
 		requestPriority = Integer.parseInt(cliParser.getOptionValue("priority", "0"));
 		app_attempt_id = cliParser.getOptionValue("app_attempt_id", "");
 	}
 
-	/**
-	 * Dump out contents of $CWD and the environment to stdout for debugging
-	 */
 	private void dumpOutDebugInfo() {
-		LOG.info("Dump debug output");
+		LOGGER.info("Dump debug output");
 		Map<String, String> envs = System.getenv();
 		for (Map.Entry<String, String> env : envs.entrySet()) {
-			LOG.info("System env: key=" + env.getKey() + ", val=" + env.getValue());
-			System.out.println("System env: key=" + env.getKey() + ", val=" + env.getValue());
+			LOGGER.info("System env: key=" + env.getKey() + ", val=" + env.getValue());
 		}
 
 		BufferedReader buf = null;
@@ -91,13 +79,12 @@ public class ApplicationMaster_Configuration {
 			buf = new BufferedReader(new StringReader(lines));
 			String line = "";
 			while ((line = buf.readLine()) != null) {
-				LOG.info("System CWD content: " + line);
-				System.out.println("System CWD content: " + line);
+				LOGGER.info("System CWD content: " + line);
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
 		} finally {
-			IOUtils.cleanup(LOG, buf);
+			IOUtils.cleanup(LOGGER, buf);
 		}
 	}
 

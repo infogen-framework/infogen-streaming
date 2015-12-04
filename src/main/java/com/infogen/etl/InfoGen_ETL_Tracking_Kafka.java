@@ -9,6 +9,9 @@ import java.util.concurrent.Executors;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.log4j.Logger;
+
+import com.infogen.yarn3.RMCallbackHandler;
 
 import kafka.consumer.ConsumerConfig;
 import kafka.consumer.ConsumerIterator;
@@ -25,7 +28,7 @@ import kafka.utils.VerifiableProperties;
  * @version 1.0
  */
 public class InfoGen_ETL_Tracking_Kafka {
-	private static final Log LOGGER = LogFactory.getLog(InfoGen_ETL_Tracking_Kafka.class);
+	private static Logger LOGGER = Logger.getLogger(InfoGen_ETL_Tracking_Kafka.class);
 	/**
 	 * infogen 定时对加载服务和监听纠错 调用程序不要使用
 	 */
@@ -68,6 +71,7 @@ public class InfoGen_ETL_Tracking_Kafka {
 	}
 
 	public static void main(String[] args) {
+		LOGGER.info("start-----------------------------------------------");
 		InfoGen_ETL_Tracking_Kafka.consume("172.16.8.97,172.16.8.98,172.16.8.99", "infogen_etl_tracking", "infogen_topic_tracking", 3, (message) -> {
 			LOGGER.info(message);
 		});
@@ -75,8 +79,9 @@ public class InfoGen_ETL_Tracking_Kafka {
 			Thread.currentThread().join();
 		} catch (InterruptedException e) {
 			e.printStackTrace();
+			LOGGER.error("", e);
 		}
-		System.out.println("end");
+		LOGGER.info("end------------------------------------------------------");
 	}
 
 }

@@ -56,12 +56,12 @@ public class ApplicationMaster {
 	// Handle to communicate with the Node Manager
 	protected NMClientAsync nmClientAsync;
 
-	// Counter for completed containers ( complete denotes successful or failed )
+	// 发送请求的数量/准备好的数量/完成的数量/失败的数量
 	// Needed as once requested, we should not request for containers again.
-	protected AtomicInteger numCompletedContainers = new AtomicInteger();
-	protected AtomicInteger numAllocatedContainers = new AtomicInteger();
-	protected AtomicInteger numFailedContainers = new AtomicInteger();
 	protected AtomicInteger numRequestedContainers = new AtomicInteger();
+	protected AtomicInteger numAllocatedContainers = new AtomicInteger();
+	protected AtomicInteger numCompletedContainers = new AtomicInteger();
+	protected AtomicInteger numFailedContainers = new AtomicInteger();
 
 	// Launch threads
 	protected List<Thread> launchThreads = new ArrayList<Thread>();
@@ -70,8 +70,6 @@ public class ApplicationMaster {
 	protected ApplicationAttemptId appAttemptID;
 
 	// In both secure and non-secure modes, this points to the job-submitter.
-	protected ByteBuffer allTokens;
-	protected UserGroupInformation appSubmitterUgi;
 
 	public ApplicationMaster(ApplicationMaster_Configuration applicationmaster_configuration) throws ParseException {
 		this.applicationmaster_configuration = applicationmaster_configuration;
@@ -120,11 +118,12 @@ public class ApplicationMaster {
 				iter.remove();
 			}
 		}
-		allTokens = ByteBuffer.wrap(dob.getData(), 0, dob.getLength());
+		@SuppressWarnings("unused")
+		ByteBuffer allTokens = ByteBuffer.wrap(dob.getData(), 0, dob.getLength());
 
 		// Create appSubmitterUgi and add original tokens to it
 		String appSubmitterUserName = System.getenv(ApplicationConstants.Environment.USER.name());
-		appSubmitterUgi = UserGroupInformation.createRemoteUser(appSubmitterUserName);
+		UserGroupInformation appSubmitterUgi = UserGroupInformation.createRemoteUser(appSubmitterUserName);
 		appSubmitterUgi.addCredentials(credentials);
 	}
 
@@ -136,15 +135,39 @@ public class ApplicationMaster {
 		try {
 			ApplicationMaster appMaster = new ApplicationMaster(new ApplicationMaster_Configuration(args));
 			appMaster.run();
-			if (appMaster.finish()) {
-				LOGGER.info("Application Master completed successfully. exiting");
+
+			while (appMaster.numCompletedContainers.get() != appMaster.applicationmaster_configuration.numTotalContainers) {
+				try {
+					Thread.sleep(200);
+				} catch (InterruptedException ex) {
+					LOGGER.error("", ex);
+				}
+			}
+
+			appMaster.nmClientAsync.stop();
+			try {
+				if (appMaster.numFailedContainers.get() == 0) {
+					appMaster.amRMClient.unregisterApplicationMaster(FinalApplicationStatus.SUCCEEDED, null, null);
+				} else {
+					LOGGER.info("#存在错误任务");
+					String appMessage = "#Diagnostics." + ", total=" + appMaster.applicationmaster_configuration.numTotalContainers + ", completed=" + appMaster.numCompletedContainers.get() + ", allocated=" + appMaster.numAllocatedContainers.get() + ", failed=" + appMaster.numFailedContainers.get();
+					LOGGER.info(appMessage);
+					appMaster.amRMClient.unregisterApplicationMaster(FinalApplicationStatus.FAILED, appMessage, null);
+				}
+			} catch (YarnException ex) {
+				LOGGER.error("#Failed to unregister application", ex);
+			} catch (IOException e) {
+				LOGGER.error("#Failed to unregister application", e);
+			}
+			appMaster.amRMClient.stop();
+
+			if (appMaster.numFailedContainers.get() == 0) {
 				System.exit(0);
 			} else {
-				LOGGER.info("Application Master failed. exiting");
 				System.exit(2);
 			}
 		} catch (Throwable t) {
-			LOGGER.fatal("Error running ApplicationMaster", t);
+			LOGGER.fatal("#Error running ApplicationMaster", t);
 			LogManager.shutdown();
 			ExitUtil.terminate(1, t);
 		}
@@ -157,7 +180,7 @@ public class ApplicationMaster {
 	 * @throws IOException
 	 */
 	public void run() throws YarnException, IOException {
-		LOGGER.info("Starting ApplicationMaster");
+		LOGGER.info("#启动 ApplicationMaster");
 		check_environment();
 		credentials();
 
@@ -176,17 +199,17 @@ public class ApplicationMaster {
 
 		int maxMem = response.getMaximumResourceCapability().getMemory();
 		if (applicationmaster_configuration.containerMemory > maxMem) {
-			LOGGER.info("Container memory 配置过多:" + applicationmaster_configuration.containerMemory + ", 使用最大值:" + maxMem);
+			LOGGER.info("#Container memory 配置过多:" + applicationmaster_configuration.containerMemory + ", 使用最大值:" + maxMem);
 			applicationmaster_configuration.containerMemory = maxMem;
 		}
 		int maxVCores = response.getMaximumResourceCapability().getVirtualCores();
 		if (applicationmaster_configuration.containerVirtualCores > maxVCores) {
-			LOGGER.info("Container  virtual cores 配置过多:" + applicationmaster_configuration.containerVirtualCores + ", 使用最大值:" + maxVCores);
+			LOGGER.info("#Container  virtual cores 配置过多:" + applicationmaster_configuration.containerVirtualCores + ", 使用最大值:" + maxVCores);
 			applicationmaster_configuration.containerVirtualCores = maxVCores;
 		}
 
 		List<Container> previousAMRunningContainers = response.getContainersFromPreviousAttempts();
-		LOGGER.info(appAttemptID + " received " + previousAMRunningContainers.size() + " previous attempts' running containers on AM registration.");
+		LOGGER.info("#appattemptid:" + appAttemptID + " 使用 " + previousAMRunningContainers.size() + " 个已经注册的containers.");
 		numAllocatedContainers.addAndGet(previousAMRunningContainers.size());
 
 		int numTotalContainersToRequest = applicationmaster_configuration.numTotalContainers - previousAMRunningContainers.size();
@@ -201,42 +224,6 @@ public class ApplicationMaster {
 		Resource capability = Resource.newInstance(applicationmaster_configuration.containerMemory, applicationmaster_configuration.containerVirtualCores);
 		ContainerRequest request = new ContainerRequest(capability, null, null, pri);
 		return request;
-	}
-
-	protected boolean finish() {
-		// wait for completion.
-		while (numCompletedContainers.get() != applicationmaster_configuration.numTotalContainers) {
-			try {
-				Thread.sleep(200);
-			} catch (InterruptedException ex) {
-				LOGGER.error("", ex);
-			}
-		}
-
-		// When the application completes, it should send a finish application
-		// signal to the RM
-		LOGGER.info("Application completed. Signalling finish to RM");
-		boolean success = true;
-		try {
-			if (numFailedContainers.get() == 0) {
-				amRMClient.unregisterApplicationMaster(FinalApplicationStatus.SUCCEEDED, null, null);
-			} else {
-				String appMessage = "Diagnostics." + ", total=" + applicationmaster_configuration.numTotalContainers + ", completed=" + numCompletedContainers.get() + ", allocated=" + numAllocatedContainers.get() + ", failed=" + numFailedContainers.get();
-				LOGGER.info(appMessage);
-				amRMClient.unregisterApplicationMaster(FinalApplicationStatus.FAILED, appMessage, null);
-				success = false;
-			}
-		} catch (YarnException ex) {
-			LOGGER.error("Failed to unregister application", ex);
-		} catch (IOException e) {
-			LOGGER.error("Failed to unregister application", e);
-		}
-
-		LOGGER.info("Application completed. Stopping running containers");
-		nmClientAsync.stop();
-		amRMClient.stop();
-
-		return success;
 	}
 
 }

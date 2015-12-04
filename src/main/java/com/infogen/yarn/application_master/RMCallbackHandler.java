@@ -8,6 +8,7 @@ import java.util.Vector;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -37,7 +38,7 @@ import com.infogen.yarn.Constants;
  * @version 1.0
  */
 public class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
-	private static final Log LOG = LogFactory.getLog(RMCallbackHandler.class);
+	private static final Log LOGGER = LogFactory.getLog(RMCallbackHandler.class);
 
 	private final ApplicationMaster AM;
 	private final ApplicationMaster_Configuration applicationmaster_configuration;
@@ -51,45 +52,40 @@ public class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
 
 	@Override
 	public void onContainersCompleted(List<ContainerStatus> completedContainers) {
-		LOG.info("Got response from RM for container ask, completedCnt=" + completedContainers.size());
+		LOGGER.info("#onContainersCompleted, completedCnt=" + completedContainers.size());
 		for (ContainerStatus containerStatus : completedContainers) {
-			LOG.info(AM.appAttemptID + " got container status for containerID=" + containerStatus.getContainerId() + ", state=" + containerStatus.getState() + ", exitStatus=" + containerStatus.getExitStatus() + ", diagnostics=" + containerStatus.getDiagnostics());
-			// non complete containers should not be here
+			LOGGER.info("#container状态 appAttemptID =" + AM.appAttemptID + "  containerID=" + containerStatus.getContainerId() + ", state=" + containerStatus.getState() + ", exitStatus=" + containerStatus.getExitStatus() + ", diagnostics=" + containerStatus.getDiagnostics());
 			assert (containerStatus.getState() == ContainerState.COMPLETE);
-			// increment counters for completed/failed containers
 			int exitStatus = containerStatus.getExitStatus();
-			if (0 != exitStatus) {
-				// container failed
+			// 失败的container
+			if (exitStatus != 0) {
 				if (ContainerExitStatus.ABORTED == exitStatus) {
-					// container was killed by framework, possibly preempted
-					// we should re-try as the container was lost for some reason
+					// 多种原因被框架kill
 					AM.numAllocatedContainers.decrementAndGet();
 					AM.numRequestedContainers.decrementAndGet();
 				} else {
-					// command failed
-					// counts as completed
+					// 执行失败
 					AM.numCompletedContainers.incrementAndGet();
 					AM.numFailedContainers.incrementAndGet();
 				}
 			} else {
-				// nothing to do
 				// container completed successfully
 				AM.numCompletedContainers.incrementAndGet();
-				LOG.info("Container completed successfully." + ", containerId=" + containerStatus.getContainerId());
+				LOGGER.info("#Container completed successfully." + ", containerId=" + containerStatus.getContainerId());
 			}
 		}
 
 		// ask for more containers if any failed
-		LOG.info("numTotalContainers: " + applicationmaster_configuration.numTotalContainers + ", numRequestedContainers: " + AM.numRequestedContainers.get());
+		LOGGER.info("#numTotalContainers: " + applicationmaster_configuration.numTotalContainers + ", numRequestedContainers: " + AM.numRequestedContainers.get());
 		int askCount = applicationmaster_configuration.numTotalContainers - AM.numRequestedContainers.get();
 		AM.numRequestedContainers.addAndGet(askCount);
 
-		LOG.info("askCount: " + askCount);
+		LOGGER.info("#请求container数量: " + askCount);
 		if (askCount > 0) {
 			for (int i = 0; i < askCount; ++i) {
 				ContainerRequest containerAsk = AM.setupContainerAskForRM();
 				AM.amRMClient.addContainerRequest(containerAsk);
-				LOG.info("Sent containerAsk 1");
+				LOGGER.info("Sent containerAsk 1");
 			}
 		}
 
@@ -97,10 +93,10 @@ public class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
 
 	@Override
 	public void onContainersAllocated(List<Container> allocatedContainers) {
-		LOG.info("Got response from RM for container ask, allocatedCnt=" + allocatedContainers.size());
+		LOGGER.info("#onContainersAllocated, completedCnt=" + allocatedContainers.size());
 		AM.numAllocatedContainers.addAndGet(allocatedContainers.size());
 		for (Container allocatedContainer : allocatedContainers) {
-			LOG.info("Launching command on a new container." + ", containerId=" + allocatedContainer.getId() + ", containerNode=" + allocatedContainer.getNodeId().getHost() + ":" + allocatedContainer.getNodeId().getPort() + ", containerNodeURI=" + allocatedContainer.getNodeHttpAddress() + ", containerResourceMemory" + allocatedContainer.getResource().getMemory() + ", containerResourceVirtualCores" + allocatedContainer.getResource().getVirtualCores());
+			LOGGER.info("#在new container中启动任务:" + "containerId=" + allocatedContainer.getId() + ", containerNode=" + allocatedContainer.getNodeId().getHost() + ":" + allocatedContainer.getNodeId().getPort() + ", containerNodeURI=" + allocatedContainer.getNodeHttpAddress() + ", containerResourceMemory" + allocatedContainer.getResource().getMemory() + ", containerResourceVirtualCores" + allocatedContainer.getResource().getVirtualCores());
 			LaunchContainerRunnable runnableLaunchContainer = new LaunchContainerRunnable(allocatedContainer, nmcallbackhandler);
 			Thread launchThread = new Thread(runnableLaunchContainer);
 			AM.launchThreads.add(launchThread);
@@ -110,12 +106,12 @@ public class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
 
 	@Override
 	public void onShutdownRequest() {
-		LOG.info("=====onShutdownRequest()=====");
+		LOGGER.info("=====onShutdownRequest()=====");
 	}
 
 	@Override
 	public void onNodesUpdated(List<NodeReport> updatedNodes) {
-		LOG.info("=====onNodesUpdated()=====");
+		LOGGER.info("=====onNodesUpdated()=====");
 	}
 
 	@Override
@@ -127,7 +123,7 @@ public class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
 
 	@Override
 	public void onError(Throwable e) {
-		LOG.info("=====onError()=====, {}", e);
+		LOGGER.info("=====onError()=====, {}", e);
 		AM.amRMClient.stop();
 	}
 
@@ -135,6 +131,7 @@ public class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
 	 * Thread to connect to the {@link ContainerManagementProtocol} and launch the container that will execute the command.
 	 */
 	private class LaunchContainerRunnable implements Runnable {
+		protected Configuration conf = new YarnConfiguration();
 		// Allocated container
 		private Container container;
 		private NMCallbackHandler containerListener;
@@ -145,24 +142,28 @@ public class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
 		}
 
 		@Override
-		/**
-		 * Connects to CM, sets up container launch context for command and eventually dispatches the container start request to the CM.
-		 */
 		public void run() {
-			LOG.info("Setting up container launch container for containerid=" + container.getId());
+			LOGGER.info("提交任务: containerid=" + container.getId());
 			// Set the environment
-			Map<String, String> env = new HashMap<>();
+			Map<String, String> environment = new HashMap<String, String>();
 			StringBuilder classPathEnv = new StringBuilder(Environment.CLASSPATH.$$()).append(ApplicationConstants.CLASS_PATH_SEPARATOR).append("./*");
-			for (String c : AM.conf.getStrings(YarnConfiguration.YARN_APPLICATION_CLASSPATH, YarnConfiguration.DEFAULT_YARN_CROSS_PLATFORM_APPLICATION_CLASSPATH)) {
+			for (String c : conf.getStrings(YarnConfiguration.YARN_APPLICATION_CLASSPATH, YarnConfiguration.DEFAULT_YARN_CROSS_PLATFORM_APPLICATION_CLASSPATH)) {
 				classPathEnv.append(ApplicationConstants.CLASS_PATH_SEPARATOR);
 				classPathEnv.append(c.trim());
 			}
-			env.put("CLASSPATH", classPathEnv.toString());
+			classPathEnv.append(ApplicationConstants.CLASS_PATH_SEPARATOR).append("./log4j.properties");
+			// add the runtime classpath needed for tests to work
+			if (conf.getBoolean(YarnConfiguration.IS_MINI_YARN_CLUSTER, false)) {
+				classPathEnv.append(':');
+				classPathEnv.append(System.getProperty("java.class.path"));
+			}
+			LOGGER.info("#environment :" + classPathEnv.toString());
+			environment.put("CLASSPATH", classPathEnv.toString());
 
 			// Set the local resources
 			Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
 			try {
-				FileSystem fs = FileSystem.newInstance(AM.conf);
+				FileSystem fs = FileSystem.newInstance(conf);
 				ApplicationId appId = this.container.getId().getApplicationAttemptId().getApplicationId();
 				String suffix = Constants.APP_NAME + "/" + appId + "/" + Constants.JAR_NAME;
 				Path dst = new Path(fs.getHomeDirectory(), suffix);
@@ -170,8 +171,9 @@ public class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
 				LocalResource scRsrc = LocalResource.newInstance(ConverterUtils.getYarnUrlFromURI(dst.toUri()), LocalResourceType.FILE, LocalResourceVisibility.APPLICATION, scFileStatus.getLen(), scFileStatus.getModificationTime());
 				localResources.put(Constants.JAR_NAME, scRsrc);
 			} catch (Exception e) {
-				e.printStackTrace();
+				LOGGER.error("#ocalResources=", e);
 			}
+			LOGGER.info("#ocalResources:" + Constants.LOCAL_JAR_PATH + " to " + Constants.JAR_NAME);
 
 			// Set the necessary command to execute on the allocated container
 			Vector<CharSequence> vargs = new Vector<CharSequence>(5);
@@ -185,11 +187,12 @@ public class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
 			for (CharSequence str : vargs) {
 				command.append(str).append(" ");
 			}
-
+			LOGGER.info("#command=" + command);
 			List<String> commands = new ArrayList<String>();
 			commands.add(command.toString());
 
-			ContainerLaunchContext ctx = ContainerLaunchContext.newInstance(localResources, env, commands, null, AM.allTokens.duplicate(), null);
+			LOGGER.info("#startContainerAsync");
+			ContainerLaunchContext ctx = ContainerLaunchContext.newInstance(localResources, environment, commands, null, null, null);
 			containerListener.addContainer(container.getId(), container);
 			AM.nmClientAsync.startContainerAsync(container, ctx);
 		}

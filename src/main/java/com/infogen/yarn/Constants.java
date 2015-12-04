@@ -14,6 +14,6 @@ public class Constants {
 	public static final String JAR_NAME = FilenameUtils.getName(LOCAL_JAR_PATH);
 	// Main class to invoke application master
 	public static final String APPLICATIONMASTER_CLASS = "com.infogen.yarn.application_master.ApplicationMaster";
-	public static final String JAVA_APPLICATION = "com.infogen.etl.InfoGen_ETL_Tracking_Kafka";
+	public static final String JAVA_APPLICATION = "com.infogen.etl.Demo";
 
 }

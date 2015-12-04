@@ -20,6 +20,7 @@ import org.apache.hadoop.io.DataOutputBuffer;
 import org.apache.hadoop.security.Credentials;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.token.Token;
+import org.apache.hadoop.util.ExitUtil;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.ApplicationConstants.Environment;
 import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationResponse;
@@ -58,8 +59,8 @@ public class Client {
 		this.client_configuration = client_configuration;
 	}
 
-	public boolean run() throws IOException, YarnException {
-		LOGGER.info("Running Client");
+	public ApplicationId run() throws IOException, YarnException {
+		LOGGER.info("#启动 Client");
 		yarnClient = YarnClient.createYarnClient();
 		yarnClient.init(conf);
 		yarnClient.start();
@@ -67,18 +68,18 @@ public class Client {
 		///////////////////////////////////////////////////////// 打印集群状态
 		// LOGGER 集群指标 目前只提供NodeManager的个数
 		YarnClusterMetrics clusterMetrics = yarnClient.getYarnClusterMetrics();
-		LOGGER.info("NodeManager 个数:" + clusterMetrics.getNumNodeManagers());
+		LOGGER.info("#NodeManager 个数:" + clusterMetrics.getNumNodeManagers());
 		List<NodeReport> clusterNodeReports = yarnClient.getNodeReports(NodeState.RUNNING);
-		LOGGER.info("Node状态:");
+		LOGGER.info("#Node状态:");
 		for (NodeReport node : clusterNodeReports) {
-			LOGGER.info("nodeId=" + node.getNodeId() + ", nodeAddress" + node.getHttpAddress() + ", nodeRackName" + node.getRackName() + ", nodeNumContainers" + node.getNumContainers());
+			LOGGER.info("#nodeId=" + node.getNodeId() + ", nodeAddress" + node.getHttpAddress() + ", nodeRackName" + node.getRackName() + ", nodeNumContainers" + node.getNumContainers());
 		}
 		QueueInfo queueInfo = yarnClient.getQueueInfo(client_configuration.amQueue);
-		LOGGER.info("队列信息:  queueName=" + queueInfo.getQueueName() + ", queueCurrentCapacity=" + queueInfo.getCurrentCapacity() + ", queueMaxCapacity=" + queueInfo.getMaximumCapacity() + ", queueApplicationCount=" + queueInfo.getApplications().size() + ", queueChildQueueCount=" + queueInfo.getChildQueues().size());
+		LOGGER.info("#队列信息:  queueName=" + queueInfo.getQueueName() + ", queueCurrentCapacity=" + queueInfo.getCurrentCapacity() + ", queueMaxCapacity=" + queueInfo.getMaximumCapacity() + ", queueApplicationCount=" + queueInfo.getApplications().size() + ", queueChildQueueCount=" + queueInfo.getChildQueues().size());
 		List<QueueUserACLInfo> listAclInfo = yarnClient.getQueueAclsInfo();
 		for (QueueUserACLInfo aclInfo : listAclInfo) {
 			for (QueueACL userAcl : aclInfo.getUserAcls()) {
-				LOGGER.info("User ACL Info for Queue" + ", queueName=" + aclInfo.getQueueName() + ", userAcl=" + userAcl.name());
+				LOGGER.info("#User ACL Info for Queue" + ", queueName=" + aclInfo.getQueueName() + ", userAcl=" + userAcl.name());
 			}
 		}
 
@@ -100,12 +101,12 @@ public class Client {
 		GetNewApplicationResponse appResponse = app.getNewApplicationResponse();
 		int maxMem = appResponse.getMaximumResourceCapability().getMemory();
 		if (client_configuration.amMemory > maxMem) {
-			LOGGER.info("AM memory 配置过多:" + client_configuration.amMemory + ", 使用最大值:" + maxMem);
+			LOGGER.info("#AM memory 配置过多:" + client_configuration.amMemory + ", 使用最大值:" + maxMem);
 			client_configuration.amMemory = maxMem;
 		}
 		int maxVCores = appResponse.getMaximumResourceCapability().getVirtualCores();
 		if (client_configuration.amVCores > maxVCores) {
-			LOGGER.info("AM virtual cores 配置过多:" + client_configuration.amVCores + ", 使用最大值:" + maxVCores);
+			LOGGER.info("#AM virtual cores 配置过多:" + client_configuration.amVCores + ", 使用最大值:" + maxVCores);
 			client_configuration.amVCores = maxVCores;
 		}
 		appContext.setResource(Resource.newInstance(client_configuration.amMemory, client_configuration.amVCores));
@@ -115,9 +116,6 @@ public class Client {
 		//////////////////////////////////////////////// 获取amContainer
 		Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
 		copyFromLocalFile(appContext.getApplicationId(), Constants.LOCAL_JAR_PATH, Constants.JAR_NAME, localResources);
-		if (!client_configuration.LOCAL_LOG4J_PATH.isEmpty()) {
-			copyFromLocalFile(appContext.getApplicationId(), client_configuration.LOCAL_LOG4J_PATH, Constants.LOG4J_PATH, localResources);
-		}
 		Map<String, String> environment = environment();
 		List<String> commands = commands();
 
@@ -143,23 +141,23 @@ public class Client {
 			ByteBuffer fsTokens = ByteBuffer.wrap(dob.getData(), 0, dob.getLength());
 			amContainer.setTokens(fsTokens);
 		} else {
-			LOGGER.info("SecurityEnabled , not support");
+			LOGGER.info("#SecurityEnabled , not support");
 		}
 
 		////////////////////////////////////////// 启动
 		// Set the necessary security tokens as needed
 		// amContainer.setContainerTokens(containerToken);
 		appContext.setAMContainerSpec(amContainer);
-		LOGGER.info("Submitting application to ASM");
+		LOGGER.info("#Submitting application");
 		yarnClient.submitApplication(appContext);
 
 		////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		// Monitor the application
-		return monitorApplication(appContext.getApplicationId());
+		return appContext.getApplicationId();
 	}
 
 	private Map<String, LocalResource> copyFromLocalFile(ApplicationId applicationId, String scpath, String dstpath, Map<String, LocalResource> localResources) throws IOException {
-		LOGGER.info("Copy App Master jar from local filesystem and add to local environment");
+		LOGGER.info("#copyFromLocalFile:" + Constants.LOCAL_JAR_PATH + " to " + Constants.JAR_NAME);
 		FileSystem fs = FileSystem.get(conf);
 		Path jar_dst = new Path(fs.getHomeDirectory(), Constants.APP_NAME + "/" + applicationId + "/" + dstpath);
 		fs.copyFromLocalFile(new Path(scpath), jar_dst);
@@ -169,7 +167,6 @@ public class Client {
 	}
 
 	private Map<String, String> environment() {
-		LOGGER.info("Set the environment for the application master");
 		Map<String, String> environment = new HashMap<String, String>();
 		// Add AppMaster.jar location to classpath
 		// At some point we should not be required to add
@@ -188,13 +185,12 @@ public class Client {
 			classPathEnv.append(':');
 			classPathEnv.append(System.getProperty("java.class.path"));
 		}
-		LOGGER.info("environment :" + classPathEnv.toString());
+		LOGGER.info("#environment :" + classPathEnv.toString());
 		environment.put("CLASSPATH", classPathEnv.toString());
 		return environment;
 	}
 
 	private List<String> commands() {
-		LOGGER.info("Setting up app master command");
 		// Set the necessary command to execute the application master
 		Vector<CharSequence> vargs = new Vector<CharSequence>(30);
 		vargs.add(Environment.JAVA_HOME.$$() + "/bin/java");
@@ -214,61 +210,10 @@ public class Client {
 			command.append(str).append(" ");
 		}
 
+		LOGGER.info("#command:" + command);
 		List<String> commands = new ArrayList<String>();
 		commands.add(command.toString());
 		return commands;
-	}
-
-	/**
-	 * Monitor the submitted application for completion. Kill application if time expires.
-	 * 
-	 * @param appId
-	 *            Application Id of application to be monitored
-	 * @return true if application completed successfully
-	 * @throws YarnException
-	 * @throws IOException
-	 */
-	private boolean monitorApplication(ApplicationId appId) throws YarnException, IOException {
-		while (true) {
-			// Check app status every 1 second.
-			try {
-				Thread.sleep(3 * 1000);
-			} catch (InterruptedException e) {
-				LOGGER.debug("Thread sleep in monitoring loop interrupted");
-			}
-
-			// Get application report for the appId we are interested in
-			ApplicationReport report = yarnClient.getApplicationReport(appId);
-			LOGGER.info("Got application report from ASM for" + ", appId=" + appId.getId() + ", clientToAMToken=" + report.getClientToAMToken() + ", appDiagnostics=" + report.getDiagnostics() + ", appMasterHost=" + report.getHost() + ", appQueue=" + report.getQueue() + ", appMasterRpcPort=" + report.getRpcPort() + ", appStartTime=" + report.getStartTime() + ", yarnAppState=" + report.getYarnApplicationState().toString() + ", distributedFinalState=" + report.getFinalApplicationStatus().toString()
-					+ ", appTrackingUrl=" + report.getTrackingUrl() + ", appUser=" + report.getUser());
-
-			YarnApplicationState state = report.getYarnApplicationState();
-			FinalApplicationStatus dsStatus = report.getFinalApplicationStatus();
-			if (YarnApplicationState.FINISHED == state) {
-				if (FinalApplicationStatus.SUCCEEDED == dsStatus) {
-					LOGGER.info("Application has completed successfully. Breaking monitoring loop");
-					return true;
-				} else {
-					LOGGER.info("Application did finished unsuccessfully." + " YarnState=" + state.toString() + ", DSFinalStatus=" + dsStatus.toString() + ". Breaking monitoring loop");
-					return false;
-				}
-			}
-			if (YarnApplicationState.KILLED == state || YarnApplicationState.FAILED == state) {
-				LOGGER.info("Application did not finish." + " YarnState=" + state.toString() + ", DSFinalStatus=" + dsStatus.toString() + ". Breaking monitoring loop");
-				return false;
-			}
-			// Running
-			if (YarnApplicationState.RUNNING == state) {
-				LOGGER.info("Application is running. Breaking monitoring loop.");
-				return true;
-			}
-			// Client timeout
-			if (System.currentTimeMillis() > (client_configuration.clientStartTime + client_configuration.clientTimeout)) {
-				LOGGER.info("Reached client specified timeout for application. Killing application");
-				yarnClient.killApplication(appId);
-				return false;
-			}
-		}
 	}
 
 	/**
@@ -281,16 +226,45 @@ public class Client {
 		// -num_containers 2
 		try {
 			Client client = new Client(new Client_Configuration(args));
-			if (client.run()) {
-				LOGGER.info("Application completed successfully");
-				System.exit(0);
-			} else {
-				LOGGER.error("Application failed to complete successfully");
-				System.exit(2);
+			ApplicationId appId = client.run();
+
+			while (true) {
+				try {
+					Thread.sleep(3 * 1000);
+				} catch (InterruptedException e) {
+					LOGGER.debug("#Thread sleep in monitoring loop interrupted", e);
+				}
+
+				// Get application report for the appId we are interested in
+				ApplicationReport report = client.yarnClient.getApplicationReport(appId);
+				LOGGER.info("#获取 application 状态:" + ", appId=" + appId.getId() + ", clientToAMToken=" + report.getClientToAMToken() + ", appDiagnostics=" + report.getDiagnostics() + ", appMasterHost=" + report.getHost() + ", appQueue=" + report.getQueue());
+				LOGGER.info("                                           , appMasterRpcPort=" + report.getRpcPort() + ", appStartTime=" + report.getStartTime() + ", yarnAppState=" + report.getYarnApplicationState().toString() + ", distributedFinalState=" + report.getFinalApplicationStatus().toString());
+				LOGGER.info("                                          , appTrackingUrl=" + report.getTrackingUrl() + ", appUser=" + report.getUser());
+
+				YarnApplicationState state = report.getYarnApplicationState();
+				FinalApplicationStatus dsStatus = report.getFinalApplicationStatus();
+				// Running
+				if (YarnApplicationState.RUNNING == state) {
+					LOGGER.info("#Application is running...");
+				}
+
+				if (YarnApplicationState.FINISHED == state) {
+					if (FinalApplicationStatus.SUCCEEDED == dsStatus) {
+						LOGGER.info("#Application 执行成功");
+						System.exit(0);
+					} else {
+						LOGGER.info("#Application 执行完成，但有失败:" + " YarnState=" + state.toString() + ", DSFinalStatus=" + dsStatus.toString() + ". Breaking monitoring loop");
+						System.exit(2);
+					}
+				}
+				if (YarnApplicationState.KILLED == state || YarnApplicationState.FAILED == state) {
+					LOGGER.info("#Application 没有完成:" + " YarnState=" + state.toString() + ", DSFinalStatus=" + dsStatus.toString() + ". Breaking monitoring loop");
+					System.exit(2);
+				}
 			}
 		} catch (Throwable t) {
-			LOGGER.fatal("Error running Client", t);
-			System.exit(1);
+			LOGGER.fatal("#Error running Client", t);
+			ExitUtil.terminate(1, t);
 		}
 	}
 }
