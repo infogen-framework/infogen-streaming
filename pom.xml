@@ -1,0 +1,98 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>com.infogen</groupId>
+	<artifactId>infogen_etl</artifactId>
+	<version>V1.0.00R150430</version>
+	<packaging>jar</packaging>
+
+	<name>infogen_etl</name>
+	<url>https://github.com/larrylgq/infogen_analysis</url>
+	<description>提供最基础的工具类</description>
+	<licenses>
+		<license>
+			<name>The Apache Software License, Version 2.0</name>
+			<url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+		</license>
+	</licenses>
+	<developers>
+		<developer>
+			<name>larry</name>
+			<email>larrylv@outlook.com</email>
+		</developer>
+	</developers>
+	<scm>
+		<connection>scm:git@github.com:larrylgq/infogen_analysis.git</connection>
+		<developerConnection>scm:git@github.com:larrylgq/infogen_analysis.git</developerConnection>
+		<url>git@github.com:larrylgq/infogen_analysis.git</url>
+	</scm>
+	<properties>
+		<project.build.sourceEncoding>utf-8</project.build.sourceEncoding>
+		<project.reporting.outputEncoding>utf-8</project.reporting.outputEncoding>
+	</properties>
+
+	<dependencies>
+		<!-- HDFS -->
+		<dependency>
+			<groupId>org.apache.hadoop</groupId>
+			<artifactId>hadoop-client</artifactId>
+			<version>2.7.1</version>
+		</dependency>
+		<!-- <dependency> -->
+		<!-- <groupId>org.apache.hadoop</groupId> -->
+		<!-- <artifactId>hadoop-hdfs</artifactId> -->
+		<!-- <version>2.5.0</version> -->
+		<!-- </dependency> -->
+
+		<!-- kafka -->
+		<dependency>
+			<groupId>org.apache.kafka</groupId>
+			<artifactId>kafka_2.11</artifactId>
+			<version>0.8.2.2</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.slf4j</groupId>
+					<artifactId>slf4j-api</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.slf4j</groupId>
+					<artifactId>slf4j-log4j12</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<finalName>infogen_etl</finalName>
+		<defaultGoal>compile</defaultGoal>
+		<sourceDirectory>src/main/java</sourceDirectory>
+		<plugins>
+			<plugin>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>2.3.2</version>
+				<configuration>
+					<source>1.8</source>
+					<target>1.8</target>
+					<encoding>UTF-8</encoding>
+					<compilerArguments>
+						<extdirs>lib</extdirs>
+					</compilerArguments>
+				</configuration>
+			</plugin>
+
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>findbugs-maven-plugin</artifactId>
+				<version>3.0.0</version>
+				<configuration>
+					<!-- <threshold>High</threshold> -->
+					<effort>Default</effort>
+					<findbugsXmlOutput>true</findbugsXmlOutput>
+					<findbugsXmlOutputDirectory>target/findbugs
+					</findbugsXmlOutputDirectory>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+</project>
