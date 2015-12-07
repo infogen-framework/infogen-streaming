@@ -160,6 +160,7 @@ public class Client {
 		LOGGER.info("#copyFromLocalFile:" + Constants.LOCAL_JAR_PATH + " to " + Constants.JAR_NAME);
 		FileSystem fs = FileSystem.get(conf);
 		Path jar_dst = new Path(fs.getHomeDirectory(), Constants.APP_NAME + "/" + applicationId + "/" + dstpath);
+		LOGGER.info("#jar_dst:" + jar_dst);
 		fs.copyFromLocalFile(new Path(scpath), jar_dst);
 		FileStatus jar_scFileStatus = fs.getFileStatus(jar_dst);
 		localResources.put(dstpath, LocalResource.newInstance(ConverterUtils.getYarnUrlFromURI(jar_dst.toUri()), LocalResourceType.FILE, LocalResourceVisibility.APPLICATION, jar_scFileStatus.getLen(), jar_scFileStatus.getModificationTime()));
@@ -187,6 +188,7 @@ public class Client {
 		}
 		LOGGER.info("#environment :" + classPathEnv.toString());
 		environment.put("CLASSPATH", classPathEnv.toString());
+		environment.put("USER", client_configuration.user);
 		return environment;
 	}
 
@@ -199,6 +201,7 @@ public class Client {
 		vargs.add("--container_memory " + String.valueOf(client_configuration.containerMemory));
 		vargs.add("--container_vcores " + String.valueOf(client_configuration.containerVirtualCores));
 		vargs.add("--num_containers " + String.valueOf(client_configuration.numContainers));
+		vargs.add("--user " + String.valueOf(client_configuration.user));
 		if (client_configuration.debugFlag) {
 			vargs.add("--debug");
 		}

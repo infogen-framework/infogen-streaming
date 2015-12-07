@@ -159,6 +159,7 @@ public class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
 			}
 			LOGGER.info("#environment :" + classPathEnv.toString());
 			environment.put("CLASSPATH", classPathEnv.toString());
+			environment.put("USER", applicationmaster_configuration.user);
 
 			// Set the local resources
 			Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
@@ -166,14 +167,14 @@ public class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
 				FileSystem fs = FileSystem.newInstance(conf);
 				ApplicationId appId = this.container.getId().getApplicationAttemptId().getApplicationId();
 				String suffix = Constants.APP_NAME + "/" + appId + "/" + Constants.JAR_NAME;
-				Path dst = new Path(fs.getHomeDirectory(), suffix);
+				Path dst = new Path(fs.getHomeDirectory().toString().replace("yarn", applicationmaster_configuration.user), suffix);
+				LOGGER.info("#ocalResources:" + dst);
 				FileStatus scFileStatus = fs.getFileStatus(dst);
 				LocalResource scRsrc = LocalResource.newInstance(ConverterUtils.getYarnUrlFromURI(dst.toUri()), LocalResourceType.FILE, LocalResourceVisibility.APPLICATION, scFileStatus.getLen(), scFileStatus.getModificationTime());
 				localResources.put(Constants.JAR_NAME, scRsrc);
 			} catch (Exception e) {
 				LOGGER.error("#ocalResources=", e);
 			}
-			LOGGER.info("#ocalResources:" + Constants.LOCAL_JAR_PATH + " to " + Constants.JAR_NAME);
 
 			// Set the necessary command to execute on the allocated container
 			Vector<CharSequence> vargs = new Vector<CharSequence>(5);

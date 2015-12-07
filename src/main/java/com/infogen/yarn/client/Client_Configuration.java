@@ -22,6 +22,7 @@ import org.apache.hadoop.util.Shell;
  */
 public class Client_Configuration {
 	private static final Log LOGGER = LogFactory.getLog(Client.class);
+	public String user = "yarn";
 	// 优先级
 	public Integer amPriority = 0;
 	// 执行队列
@@ -67,6 +68,7 @@ public class Client_Configuration {
 			debugFlag = true;
 		}
 
+		user = cliParser.getOptionValue("user", "yarn");
 		amPriority = Integer.parseInt(cliParser.getOptionValue("priority", "0"));
 		amQueue = cliParser.getOptionValue("queue", "default");
 		nodeLabelExpression = cliParser.getOptionValue("node_label_expression", null);
@@ -127,7 +129,7 @@ public class Client_Configuration {
 		opts.addOption("queue", true, "RM Queue in which this application is to be submitted");
 		opts.addOption("master_memory", true, "Amount of memory in MB to be requested to run the application master");
 		opts.addOption("master_vcores", true, "Amount of virtual cores to be requested to run the application master");
-		opts.addOption("jar", true, "Jar file containing the application master");
+		opts.addOption("user", true, "执行用户");
 		opts.addOption("container_memory", true, "Amount of memory in MB to be requested to run the command");
 		opts.addOption("container_vcores", true, "Amount of virtual cores to be requested to run the command");
 		opts.addOption("num_containers", true, "No. of containers on which the command needs to be executed");

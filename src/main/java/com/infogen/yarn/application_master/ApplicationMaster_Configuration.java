@@ -22,6 +22,7 @@ import org.apache.hadoop.util.Shell;
  */
 public class ApplicationMaster_Configuration {
 	private static final Log LOGGER = LogFactory.getLog(ApplicationMaster.class);
+	public String user = "yarn";
 	public Integer numTotalContainers = 1;
 	// Memory to request for the container on which the command will run
 	public Integer containerMemory = 512;
@@ -56,6 +57,7 @@ public class ApplicationMaster_Configuration {
 			dumpOutDebugInfo();
 		}
 
+		user = cliParser.getOptionValue("user", "yarn");
 		containerMemory = Integer.parseInt(cliParser.getOptionValue("container_memory", "512"));
 		containerVirtualCores = Integer.parseInt(cliParser.getOptionValue("container_vcores", "1"));
 		numTotalContainers = Integer.parseInt(cliParser.getOptionValue("num_containers", "1"));
@@ -90,6 +92,7 @@ public class ApplicationMaster_Configuration {
 
 	public Options builder_applicationmaster() {
 		Options opts = new Options();
+		opts.addOption("user", true, "启动用户");
 		opts.addOption("app_attempt_id", true, "App Attempt ID. Not to be used unless for testing purposes");
 		opts.addOption("container_memory", true, "Amount of memory in MB to be requested to run the command");
 		opts.addOption("container_vcores", true, "Amount of virtual cores to be requested to run the command");
