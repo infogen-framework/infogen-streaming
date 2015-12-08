@@ -46,6 +46,7 @@ import org.apache.hadoop.yarn.client.api.YarnClientApplication;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.ConverterUtils;
+import org.apache.log4j.LogManager;
 
 import com.infogen.yarn.Constants;
 
@@ -227,47 +228,56 @@ public class Client {
 		// hadoop jar yarn-app-example-0.0.1-SNAPSHOT.jar timo.yarn_app_call_java_daemon.Client
 		// -jar yarn-app-example-0.0.1-SNAPSHOT.jar
 		// -num_containers 2
+		Client client = null;
+		ApplicationId appId = null;
 		try {
-			Client client = new Client(new Client_Configuration(args));
-			ApplicationId appId = client.run();
-
-			while (true) {
-				try {
-					Thread.sleep(3 * 1000);
-				} catch (InterruptedException e) {
-					LOGGER.debug("#Thread sleep in monitoring loop interrupted", e);
-				}
-
-				// Get application report for the appId we are interested in
-				ApplicationReport report = client.yarnClient.getApplicationReport(appId);
-				LOGGER.info("#获取 application 状态:" + ", appId=" + appId.getId() + ", clientToAMToken=" + report.getClientToAMToken() + ", appDiagnostics=" + report.getDiagnostics() + ", appMasterHost=" + report.getHost() + ", appQueue=" + report.getQueue());
-				LOGGER.info("                                           , appMasterRpcPort=" + report.getRpcPort() + ", appStartTime=" + report.getStartTime() + ", yarnAppState=" + report.getYarnApplicationState().toString() + ", distributedFinalState=" + report.getFinalApplicationStatus().toString());
-				LOGGER.info("                                          , appTrackingUrl=" + report.getTrackingUrl() + ", appUser=" + report.getUser());
-
-				YarnApplicationState state = report.getYarnApplicationState();
-				FinalApplicationStatus dsStatus = report.getFinalApplicationStatus();
-				// Running
-				if (YarnApplicationState.RUNNING == state) {
-					LOGGER.info("#Application is running...");
-				}
-
-				if (YarnApplicationState.FINISHED == state) {
-					if (FinalApplicationStatus.SUCCEEDED == dsStatus) {
-						LOGGER.info("#Application 执行成功");
-						System.exit(0);
-					} else {
-						LOGGER.info("#Application 执行完成，但有失败:" + " YarnState=" + state.toString() + ", DSFinalStatus=" + dsStatus.toString() + ". Breaking monitoring loop");
-						System.exit(2);
-					}
-				}
-				if (YarnApplicationState.KILLED == state || YarnApplicationState.FAILED == state) {
-					LOGGER.info("#Application 没有完成:" + " YarnState=" + state.toString() + ", DSFinalStatus=" + dsStatus.toString() + ". Breaking monitoring loop");
-					System.exit(2);
-				}
-			}
+			client = new Client(new Client_Configuration(args));
+			appId = client.run();
 		} catch (Throwable t) {
 			LOGGER.fatal("#Error running Client", t);
+			LogManager.shutdown();
 			ExitUtil.terminate(1, t);
 		}
+
+		while (true) {
+			try {
+				Thread.sleep(3 * 1000);
+			} catch (InterruptedException e) {
+				LOGGER.debug("#Thread sleep in monitoring loop interrupted", e);
+			}
+
+			// Get application report for the appId we are interested in
+			ApplicationReport report = null;
+			try {
+				report = client.yarnClient.getApplicationReport(appId);
+			} catch (YarnException | IOException e) {
+				LOGGER.fatal("#获取 application 状态失败", e);
+				System.exit(2);
+			}
+			LOGGER.info("#获取 application 状态:" + ", appId=" + appId.getId() + ", clientToAMToken=" + report.getClientToAMToken() + ", appDiagnostics=" + report.getDiagnostics() + ", appMasterHost=" + report.getHost() + ", appQueue=" + report.getQueue());
+			LOGGER.info("                                           , appMasterRpcPort=" + report.getRpcPort() + ", appStartTime=" + report.getStartTime() + ", yarnAppState=" + report.getYarnApplicationState().toString() + ", distributedFinalState=" + report.getFinalApplicationStatus().toString());
+			LOGGER.info("                                          , appTrackingUrl=" + report.getTrackingUrl() + ", appUser=" + report.getUser());
+
+			YarnApplicationState state = report.getYarnApplicationState();
+			FinalApplicationStatus dsStatus = report.getFinalApplicationStatus();
+			// Running
+			if (YarnApplicationState.RUNNING == state) {
+				LOGGER.info("#Application is running...");
+			} else if (YarnApplicationState.FINISHED == state) {
+				if (FinalApplicationStatus.SUCCEEDED == dsStatus) {
+					LOGGER.info("#Application 执行成功");
+				} else {
+					LOGGER.info("#Application 执行完成，但有失败:" + " YarnState=" + state.toString() + ", DSFinalStatus=" + dsStatus.toString() + ". Breaking monitoring loop");
+				}
+				return;
+			} else if (YarnApplicationState.KILLED == state || YarnApplicationState.FAILED == state) {
+				LOGGER.info("#Application 没有完成:" + " YarnState=" + state.toString() + ", DSFinalStatus=" + dsStatus.toString() + ". Breaking monitoring loop");
+				System.exit(2);
+			} else {
+				LOGGER.fatal("#未知 application 状态");
+				System.exit(3);
+			}
+		}
+
 	}
 }
