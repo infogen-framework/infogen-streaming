@@ -194,6 +194,7 @@ public class ApplicationMaster {
 			LogManager.shutdown();
 			ExitUtil.terminate(1, t);
 		}
+
 		while (appMaster.numCompletedContainers.get() != appMaster.applicationmaster_configuration.numTotalContainers) {
 			try {
 				Thread.sleep(200);
@@ -206,22 +207,25 @@ public class ApplicationMaster {
 		try {
 			if (appMaster.numFailedContainers.get() == 0) {
 				appMaster.amRMClient.unregisterApplicationMaster(FinalApplicationStatus.SUCCEEDED, null, null);
+				appMaster.amRMClient.stop();
 			} else {
 				String appMessage = "#Diagnostics." + ", total=" + appMaster.applicationmaster_configuration.numTotalContainers + ", completed=" + appMaster.numCompletedContainers.get() + ", allocated=" + appMaster.numAllocatedContainers.get() + ", failed=" + appMaster.numFailedContainers.get();
 				LOGGER.info("#存在错误任务");
 				LOGGER.info(appMessage);
 				appMaster.amRMClient.unregisterApplicationMaster(FinalApplicationStatus.FAILED, appMessage, null);
+				appMaster.amRMClient.stop();
+				System.exit(2);
 			}
-		} catch (YarnException ex) {
+		} catch (YarnException | IOException ex) {
 			LOGGER.error("#Failed to unregister application", ex);
-		} catch (IOException e) {
-			LOGGER.error("#Failed to unregister application", e);
 		}
 		appMaster.amRMClient.stop();
+
 		if (appMaster.numFailedContainers.get() == 0) {
 			return;
 		} else {
-			System.exit(2);
+			LogManager.shutdown();
+			ExitUtil.terminate(2);
 		}
 	}
 }

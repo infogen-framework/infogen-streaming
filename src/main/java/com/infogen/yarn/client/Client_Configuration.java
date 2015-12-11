@@ -22,7 +22,7 @@ import org.apache.hadoop.util.Shell;
  */
 public class Client_Configuration {
 	private static final Log LOGGER = LogFactory.getLog(Client.class);
-	public String user = "yarn";
+	public String user = System.getProperty("user.name");
 	// 优先级
 	public Integer amPriority = 0;
 	// 执行队列
@@ -68,7 +68,7 @@ public class Client_Configuration {
 			debugFlag = true;
 		}
 
-		user = cliParser.getOptionValue("user", "yarn");
+		user = cliParser.getOptionValue("user", System.getProperty("user.name"));
 		amPriority = Integer.parseInt(cliParser.getOptionValue("priority", "0"));
 		amQueue = cliParser.getOptionValue("queue", "default");
 		nodeLabelExpression = cliParser.getOptionValue("node_label_expression", null);

@@ -22,7 +22,7 @@ import org.apache.hadoop.util.Shell;
  */
 public class ApplicationMaster_Configuration {
 	private static final Log LOGGER = LogFactory.getLog(ApplicationMaster.class);
-	public String user = "yarn";
+	public String user = System.getProperty("user.name");
 	public Integer numTotalContainers = 1;
 	// Memory to request for the container on which the command will run
 	public Integer containerMemory = 512;
@@ -57,7 +57,7 @@ public class ApplicationMaster_Configuration {
 			dumpOutDebugInfo();
 		}
 
-		user = cliParser.getOptionValue("user", "yarn");
+		user = cliParser.getOptionValue("user", System.getProperty("user.name"));
 		containerMemory = Integer.parseInt(cliParser.getOptionValue("container_memory", "512"));
 		containerVirtualCores = Integer.parseInt(cliParser.getOptionValue("container_vcores", "1"));
 		numTotalContainers = Integer.parseInt(cliParser.getOptionValue("num_containers", "1"));

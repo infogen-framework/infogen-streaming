@@ -160,7 +160,7 @@ public class Client {
 	private Map<String, LocalResource> copyFromLocalFile(ApplicationId applicationId, String scpath, String dstpath, Map<String, LocalResource> localResources) throws IOException {
 		LOGGER.info("#copyFromLocalFile:" + Constants.LOCAL_JAR_PATH + " to " + Constants.JAR_NAME);
 		FileSystem fs = FileSystem.get(conf);
-		Path jar_dst = new Path(fs.getHomeDirectory(), Constants.APP_NAME + "/" + applicationId + "/" + dstpath);
+		Path jar_dst = new Path(fs.makeQualified(new Path("/user/" + client_configuration.user)), Constants.APP_NAME + "/" + applicationId + "/" + dstpath);
 		LOGGER.info("#jar_dst:" + jar_dst);
 		fs.copyFromLocalFile(new Path(scpath), jar_dst);
 		FileStatus jar_scFileStatus = fs.getFileStatus(jar_dst);
@@ -252,17 +252,20 @@ public class Client {
 				report = client.yarnClient.getApplicationReport(appId);
 			} catch (YarnException | IOException e) {
 				LOGGER.fatal("#获取 application 状态失败", e);
-				System.exit(2);
+				LogManager.shutdown();
+				ExitUtil.terminate(2, e);
 			}
+
 			LOGGER.info("#获取 application 状态:" + ", appId=" + appId.getId() + ", clientToAMToken=" + report.getClientToAMToken() + ", appDiagnostics=" + report.getDiagnostics() + ", appMasterHost=" + report.getHost() + ", appQueue=" + report.getQueue());
 			LOGGER.info("                                           , appMasterRpcPort=" + report.getRpcPort() + ", appStartTime=" + report.getStartTime() + ", yarnAppState=" + report.getYarnApplicationState().toString() + ", distributedFinalState=" + report.getFinalApplicationStatus().toString());
 			LOGGER.info("                                          , appTrackingUrl=" + report.getTrackingUrl() + ", appUser=" + report.getUser());
 
 			YarnApplicationState state = report.getYarnApplicationState();
 			FinalApplicationStatus dsStatus = report.getFinalApplicationStatus();
-			// Running
+
 			if (YarnApplicationState.RUNNING == state) {
 				LOGGER.info("#Application is running...");
+				continue;
 			} else if (YarnApplicationState.FINISHED == state) {
 				if (FinalApplicationStatus.SUCCEEDED == dsStatus) {
 					LOGGER.info("#Application 执行成功");
@@ -272,10 +275,12 @@ public class Client {
 				return;
 			} else if (YarnApplicationState.KILLED == state || YarnApplicationState.FAILED == state) {
 				LOGGER.info("#Application 没有完成:" + " YarnState=" + state.toString() + ", DSFinalStatus=" + dsStatus.toString() + ". Breaking monitoring loop");
-				System.exit(2);
+				LogManager.shutdown();
+				ExitUtil.terminate(2);
 			} else {
 				LOGGER.fatal("#未知 application 状态");
-				System.exit(3);
+				LogManager.shutdown();
+				ExitUtil.terminate(2);
 			}
 		}
 

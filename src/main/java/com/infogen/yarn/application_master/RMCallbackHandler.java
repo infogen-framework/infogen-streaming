@@ -166,8 +166,7 @@ public class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
 			try {
 				FileSystem fs = FileSystem.newInstance(conf);
 				ApplicationId appId = this.container.getId().getApplicationAttemptId().getApplicationId();
-				String suffix = Constants.APP_NAME + "/" + appId + "/" + Constants.JAR_NAME;
-				Path dst = new Path(fs.getHomeDirectory().toString().replace("yarn", applicationmaster_configuration.user), suffix);
+				Path dst = new Path(fs.makeQualified(new Path("/user/" + applicationmaster_configuration.user)), Constants.APP_NAME + "/" + appId + "/" + Constants.JAR_NAME);
 				LOGGER.info("#ocalResources:" + dst);
 				FileStatus scFileStatus = fs.getFileStatus(dst);
 				LocalResource scRsrc = LocalResource.newInstance(ConverterUtils.getYarnUrlFromURI(dst.toUri()), LocalResourceType.FILE, LocalResourceVisibility.APPLICATION, scFileStatus.getLen(), scFileStatus.getModificationTime());
