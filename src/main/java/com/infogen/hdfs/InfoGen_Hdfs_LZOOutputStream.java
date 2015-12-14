@@ -43,12 +43,20 @@ public class InfoGen_Hdfs_LZOOutputStream implements Delayed {
 	private FileSystem fs;
 	private DataOutputStream lzoOutputStream;
 
+	public InfoGen_Hdfs_LZOOutputStream() {
+
+	}
+
 	public InfoGen_Hdfs_LZOOutputStream(Path path) throws IOException {
 		configuration.set("io.compression.codecs", "org.apache.hadoop.io.compress.DefaultCodec,org.apache.hadoop.io.compress.GzipCodec,com.hadoop.compression.lzo.LzopCodec");
 		configuration.set("io.compression.codec.lzo.class", "com.hadoop.compression.lzo.LzopCodec");
 		this.path = path;
 		this.path_index_tmp = path.suffix(LzoIndex.LZO_TMP_INDEX_SUFFIX);
 		this.fs = path.getFileSystem(configuration);
+
+		fs.delete(path, true);
+		fs.delete(path.suffix(LzoIndex.LZO_TMP_INDEX_SUFFIX), true);
+		fs.delete(path.suffix(LzoIndex.LZO_INDEX_SUFFIX), true);
 
 		LOGGER.info("#创建流-写入LZO文件并使用索引:" + path.toString());
 		FSDataOutputStream fileOut = fs.create(path, false);
@@ -59,15 +67,13 @@ public class InfoGen_Hdfs_LZOOutputStream implements Delayed {
 		lzoOutputStream = new DataOutputStream(codec.createIndexedOutputStream(fileOut, indexOut));
 	}
 
-	private Long last_offset = 0l;
 	private final byte[] lock = new byte[0];
 
-	public Boolean write_line(String message, Long offset) throws IOException {
+	public Boolean write_line(String message) throws IOException {
 		synchronized (lock) {
 			if (lzoOutputStream != null) {
 				lzoOutputStream.write(InfoGen_Hdfs_LZOOutputStream.newline);
 				lzoOutputStream.write(message.getBytes(InfoGen_Hdfs_LZOOutputStream.utf8));
-				last_offset = offset;
 				return true;
 			} else {
 				return false;
@@ -75,14 +81,27 @@ public class InfoGen_Hdfs_LZOOutputStream implements Delayed {
 		}
 	}
 
-	public void close() throws IOException {
+	public Integer size() {
+		synchronized (lock) {
+			if (lzoOutputStream != null) {
+				return lzoOutputStream.size();
+			}
+		}
+		return 0;
+	}
+
+	public Path getPath() {
+		return path;
+	}
+
+	public void close(String suffix) throws IOException {
 		synchronized (lock) {
 			if (lzoOutputStream != null) {
 				LOGGER.info("#关闭流-写入LZO文件并使用索引:" + path.toString());
 				lzoOutputStream.close();
 				lzoOutputStream = null;
 
-				Path new_path = path.suffix(last_offset.toString());
+				Path new_path = path.suffix(suffix);
 				fs.rename(path, new_path);
 
 				FileStatus stat = fs.getFileStatus(new_path);
@@ -97,13 +116,13 @@ public class InfoGen_Hdfs_LZOOutputStream implements Delayed {
 		}
 	}
 
-	public Long update_time = Clock.systemUTC().millis();
+	public Long delay_millis = Clock.systemUTC().millis() + 60 * 1000;// 到期时间
 
 	@Override
 	public int compareTo(Delayed o) {
-		if (this.update_time < ((InfoGen_Hdfs_LZOOutputStream) o).update_time) {
+		if (this.delay_millis < ((InfoGen_Hdfs_LZOOutputStream) o).delay_millis) {
 			return -1;
-		} else if (this.update_time > ((InfoGen_Hdfs_LZOOutputStream) o).update_time) {
+		} else if (this.delay_millis > ((InfoGen_Hdfs_LZOOutputStream) o).delay_millis) {
 			return 1;
 		} else {
 			return 0;
@@ -112,7 +131,6 @@ public class InfoGen_Hdfs_LZOOutputStream implements Delayed {
 
 	@Override
 	public long getDelay(TimeUnit unit) {
-		// 必须是NANOSECONDS否则会造成重试次数过多，CPU过高
-		return unit.convert(update_time - Clock.systemUTC().millis(), TimeUnit.NANOSECONDS);
+		return unit.convert(delay_millis - Clock.systemUTC().millis(), TimeUnit.MILLISECONDS);
 	}
 }

@@ -4,7 +4,6 @@ import java.nio.ByteBuffer;
 import java.time.Clock;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import org.apache.log4j.Logger;
@@ -31,68 +30,50 @@ import kafka.message.MessageAndOffset;
 public class InfoGen_Consumer {
 	private static Logger LOGGER = Logger.getLogger(InfoGen_Consumer.class);
 
-	@SuppressWarnings("static-access")
 	public static void main(String args[]) {
-		InfoGen_Consumer example = new InfoGen_Consumer("172.16.8.97,172.16.8.98,172.16.8.99", 10086, "test_simple_example", 2);
+		InfoGen_Consumer consumer = new InfoGen_Consumer("172.16.8.97:10086,172.16.8.98:10086,172.16.8.99:10086", "infogen_topic_tracking", 2, 0l, Long.MAX_VALUE);
+		consumer.start((String topic, Integer partition, Long offset, String message) -> {
+			System.out.println(topic + "-" + partition + "-" + offset + "-" + message);
+			System.out.println(message.split(",")[9]);
+		});
+	}
+
+	private String brokers;
+	private String topic;
+	private Integer partition;
+	private Long offset;
+	private Long end_offset = Long.MAX_VALUE;
+
+	public InfoGen_Consumer(String brokers, String topic, int partition, Long start_offset, Long end_offset) {
+		this.brokers = brokers;
+		this.topic = topic;
+		this.partition = partition;
+		this.offset = start_offset;
+		this.end_offset = end_offset;
+	}
+
+	public void start(Message_Handle handle) {
 		for (;;) {
 			try {
-				example.run(0l, (topic, partition, offset, message) -> {
-					System.out.println(topic + "-" + partition + "-" + offset + "-" + message);
-				});
+				run(handle);
+				if (offset > end_offset) {
+					LOGGER.info("#ETL正常结束");
+					return;
+				}
 			} catch (Exception e) {
 				LOGGER.error("", e);
 			}
 
 			try {
-				Thread.currentThread().sleep(1000);
+				// consumer 失败
+				Thread.sleep(1000);
 			} catch (InterruptedException e) {
 				LOGGER.error("", e);
 			}
 		}
 	}
 
-	private String brokers;
-	private Integer port;
-	private String topic;
-	private Integer partition;
-
-	public InfoGen_Consumer(String brokers, Integer port, String topic, int partition) {
-		this.brokers = brokers;
-		this.port = port;
-		this.topic = topic;
-		this.partition = partition;
-	}
-
-	// 找到指定分区的元数据
-	private PartitionMetadata findPartitionMetadata() {
-		PartitionMetadata return_partition_metadata = null;
-		List<String> topics = Collections.singletonList(topic);
-		for (String broker : brokers.split(",")) {
-			SimpleConsumer consumer = null;
-			try {
-				consumer = new SimpleConsumer(broker, port, 100000, 64 * 1024, "partitionLookup");
-				TopicMetadataRequest request = new TopicMetadataRequest(topics);
-				TopicMetadataResponse response = consumer.send(request);
-
-				for (TopicMetadata topicMetadata : response.topicsMetadata()) {
-					for (PartitionMetadata partition_metadata : topicMetadata.partitionsMetadata()) {
-						if (partition_metadata.partitionId() == partition) {
-							return_partition_metadata = partition_metadata;
-						}
-					}
-				}
-			} catch (Exception e) {
-				LOGGER.error(broker + "-" + port + "-" + topic, e);
-			} finally {
-				if (consumer != null) {
-					consumer.close();
-				}
-			}
-		}
-		return return_partition_metadata;
-	}
-
-	public void run(Long offset, Message_Handle handle) throws Exception {
+	private void run(Message_Handle handle) throws Exception {
 		// 获取指定Topic partition的元数据
 		PartitionMetadata partition_metadata = findPartitionMetadata();
 		if (partition_metadata == null) {
@@ -103,7 +84,9 @@ public class InfoGen_Consumer {
 			LOGGER.error("Can't find Leader for Topic and Partition. Exiting");
 			return;
 		}
+
 		String leaderBroker = partition_metadata.leader().host();
+		Integer port = partition_metadata.leader().port();
 		String clientId = "Client_" + topic + "_" + partition + "_" + Clock.systemUTC().millis();
 
 		SimpleConsumer consumer = null;
@@ -130,10 +113,9 @@ public class InfoGen_Consumer {
 			} else {
 
 			}
-			System.out.println(latestOffset);
 			// offset = latestOffset;
 			Integer num_errors = 0;
-			Integer max_errors = 3;
+			Integer max_errors = 5;
 			for (;;) {
 				// 读取大小为100000 超过会返回一个空的fetchResponse
 				FetchRequest req = new FetchRequestBuilder().clientId(clientId).addFetch(topic, partition, offset, 100000).build();
@@ -155,14 +137,16 @@ public class InfoGen_Consumer {
 					Boolean need_sleep = true;
 					for (MessageAndOffset messageAndOffset : fetchResponse.messageSet(topic, partition)) {
 						long currentOffset = messageAndOffset.offset();
-						if (currentOffset < offset) {
+						if (currentOffset > end_offset) {
+							return;
+						} else if (currentOffset < offset) {
 							LOGGER.info("#Found an old offset: " + currentOffset + " Expecting: " + offset);
 						} else {
-							offset = messageAndOffset.nextOffset();
 							ByteBuffer payload = messageAndOffset.message().payload();
 							byte[] bytes = new byte[payload.limit()];
 							payload.get(bytes);
 							handle.handle(topic, partition, messageAndOffset.offset(), new String(bytes, "UTF-8"));
+							offset = messageAndOffset.nextOffset();
 						}
 						need_sleep = false;
 					}
@@ -183,6 +167,37 @@ public class InfoGen_Consumer {
 				consumer.close();
 			}
 		}
+	}
+
+	// 找到指定分区的元数据
+	private PartitionMetadata findPartitionMetadata() {
+		PartitionMetadata return_partition_metadata = null;
+		for (String broker : brokers.split(",")) {
+			String host = broker.split(":")[0];
+			Integer port = Integer.valueOf(broker.split(":")[1]);
+
+			SimpleConsumer consumer = null;
+			try {
+				consumer = new SimpleConsumer(host, port, 100000, 64 * 1024, "partitionLookup");
+				TopicMetadataRequest request = new TopicMetadataRequest(Collections.singletonList(topic));
+				TopicMetadataResponse response = consumer.send(request);
+
+				for (TopicMetadata topicMetadata : response.topicsMetadata()) {
+					for (PartitionMetadata partition_metadata : topicMetadata.partitionsMetadata()) {
+						if (partition_metadata.partitionId() == partition) {
+							return_partition_metadata = partition_metadata;
+						}
+					}
+				}
+			} catch (Exception e) {
+				LOGGER.error(host + "-" + port + "-" + topic, e);
+			} finally {
+				if (consumer != null) {
+					consumer.close();
+				}
+			}
+		}
+		return return_partition_metadata;
 	}
 
 	public Long getLastOffset(SimpleConsumer consumer, long whichTime, String clientId) {
