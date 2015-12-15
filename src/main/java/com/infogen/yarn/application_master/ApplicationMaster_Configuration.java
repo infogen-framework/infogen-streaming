@@ -15,6 +15,8 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.util.Shell;
 
+import com.infogen.mapper.InfoGen_Mapper;
+
 /**
  * @author larry/larrylv@outlook.com/创建时间 2015年12月3日 下午3:58:44
  * @since 1.0
@@ -32,15 +34,16 @@ public class ApplicationMaster_Configuration {
 	public Integer requestPriority;
 	public String app_attempt_id;
 
+	/////////////////////////////////////////////////////////////////////////////////////
+	public String app_name = "infogen-etl-kafka";
+	public Class<? extends InfoGen_Mapper> mapper_clazz;
+	public String topic;
+	public String zookeeper;
+
 	private Options opts = builder_applicationmaster();
 
-	public ApplicationMaster_Configuration(String[] args) throws ParseException {
-		if (args.length == 0) {
-			LOGGER.error("#没有设置参数");
-			printUsage(opts);
-			System.exit(-1);
-		}
-
+	@SuppressWarnings("unchecked")
+	public ApplicationMaster_Configuration(String[] args) throws ParseException, ClassNotFoundException {
 		LOGGER.info("args=");
 		for (String string : args) {
 			LOGGER.info(string);
@@ -53,10 +56,18 @@ public class ApplicationMaster_Configuration {
 			System.exit(0);
 		}
 
+		topic = cliParser.getOptionValue("topic");
+		zookeeper = cliParser.getOptionValue("zookeeper");
+		app_name = cliParser.getOptionValue("app_name");
+		if (topic == null || zookeeper == null || app_name == null) {
+			printUsage(opts);
+			System.exit(0);
+		}
+		mapper_clazz = (Class<? extends InfoGen_Mapper>) Class.forName(cliParser.getOptionValue("mapper_clazz"));
+
 		if (cliParser.hasOption("debug")) {
 			dumpOutDebugInfo();
 		}
-
 		user = cliParser.getOptionValue("user", System.getProperty("user.name"));
 		containerMemory = Integer.parseInt(cliParser.getOptionValue("container_memory", "512"));
 		containerVirtualCores = Integer.parseInt(cliParser.getOptionValue("container_vcores", "1"));
@@ -100,6 +111,9 @@ public class ApplicationMaster_Configuration {
 		opts.addOption("priority", true, "Application Priority. Default 0");
 		opts.addOption("debug", false, "Dump out debug information");
 		opts.addOption("help", false, "Print usage");
+		opts.addOption("mapper_clazz", true, "mapper_clazz");
+		opts.addOption("topic", true, "topic");
+		opts.addOption("zookeeper", true, "zookeeper");
 		return opts;
 	}
 

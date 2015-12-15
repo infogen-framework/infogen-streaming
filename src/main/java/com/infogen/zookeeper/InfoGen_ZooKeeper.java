@@ -30,6 +30,7 @@ import org.apache.zookeeper.data.Stat;
  */
 public class InfoGen_ZooKeeper {
 	private static final Logger LOGGER = LogManager.getLogger(InfoGen_ZooKeeper.class.getName());
+	public static Boolean alive = true;
 
 	private static class InnerInstance {
 		public static final InfoGen_ZooKeeper instance = new InfoGen_ZooKeeper();
@@ -44,16 +45,24 @@ public class InfoGen_ZooKeeper {
 	private Map<String, Set<String>> map_auth_info = new HashMap<>();
 	public static final String CONTEXT = "/infogen_consumers";
 
-	public static String path() {
-		return CONTEXT;
-	}
-
-	public static String path(String topic) {
+	public static String topic(String topic) {
 		return CONTEXT.concat("/").concat(topic);
 	}
 
-	public static String path(String topic, String partition) {
-		return CONTEXT.concat("/").concat(topic).concat("/").concat(partition);
+	public static String offset(String topic) {
+		return CONTEXT.concat("/").concat(topic).concat("/").concat("offset");
+	}
+
+	public static String offset(String topic, Integer partition) {
+		return CONTEXT.concat("/").concat(topic).concat("/").concat("offset").concat("/").concat(partition.toString());
+	}
+
+	public static String partition(String topic) {
+		return CONTEXT.concat("/").concat(topic).concat("/").concat("partition");
+	}
+
+	public static String partition(String topic, Integer partition) {
+		return CONTEXT.concat("/").concat(topic).concat("/").concat("partition").concat("/").concat(partition.toString());
 	}
 
 	// 在服务启动时调用
@@ -137,6 +146,13 @@ public class InfoGen_ZooKeeper {
 			LOGGER.error("判断节点是否存在错误: ", e);
 		}
 		return exists;
+	}
+
+	public String create_notexists(String path, CreateMode create_mode) {
+		if (exists(path) == null) {
+			return create(path, null, create_mode);
+		}
+		return null;
 	}
 
 	public void delete(String path) {

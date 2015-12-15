@@ -8,6 +8,9 @@ import java.util.Map;
 
 import org.apache.log4j.Logger;
 
+import com.infogen.mapper.InfoGen_Mapper;
+import com.infogen.zookeeper.InfoGen_ZooKeeper;
+
 import kafka.api.FetchRequest;
 import kafka.api.FetchRequestBuilder;
 import kafka.api.PartitionOffsetRequestInfo;
@@ -29,10 +32,11 @@ import kafka.message.MessageAndOffset;
  */
 public class InfoGen_Consumer {
 	private static Logger LOGGER = Logger.getLogger(InfoGen_Consumer.class);
+	private InfoGen_ZooKeeper infogen_zookeeper = InfoGen_ZooKeeper.getInstance();
 
 	public static void main(String args[]) {
-		InfoGen_Consumer consumer = new InfoGen_Consumer("172.16.8.97:10086,172.16.8.98:10086,172.16.8.99:10086", "infogen_topic_tracking", 2, 0l, Long.MAX_VALUE);
-		consumer.start((String topic, Integer partition, Long offset, String message) -> {
+		InfoGen_Consumer consumer = new InfoGen_Consumer("infogen_topic_tracking", 2);
+		consumer.run((String topic, Integer partition, Long offset, String message) -> {
 			System.out.println(topic + "-" + partition + "-" + offset + "-" + message);
 			System.out.println(message.split(",")[9]);
 		});
@@ -41,39 +45,45 @@ public class InfoGen_Consumer {
 	private String brokers;
 	private String topic;
 	private Integer partition;
-	private Long offset;
+	private Long offset = 0l;
 	private Long end_offset = Long.MAX_VALUE;
 
-	public InfoGen_Consumer(String brokers, String topic, int partition, Long start_offset, Long end_offset) {
-		this.brokers = brokers;
-		this.topic = topic;
-		this.partition = partition;
-		this.offset = start_offset;
-		this.end_offset = end_offset;
-	}
+	public InfoGen_Consumer(String topic, int partition) {
 
-	public void start(Message_Handle handle) {
-		for (;;) {
-			try {
-				run(handle);
-				if (offset > end_offset) {
-					LOGGER.info("#ETL正常结束");
-					return;
+		// 为减少jar包的大小，未使用json
+		StringBuilder brokers_sb = new StringBuilder();
+		for (String id : infogen_zookeeper.get_childrens("/brokers/ids")) {
+			for (String kv : infogen_zookeeper.get_data("/brokers/ids/" + id).replace("{", "").replace("}", "").replace("\"", "").split(",")) {
+				String key = kv.split(":")[0];
+				String value = kv.split(":")[1];
+				if (key.equals("host")) {
+					brokers_sb.append(value).append(":");
+				} else if (key.equals("port")) {
+					brokers_sb.append(value).append(",");
+				} else {
 				}
-			} catch (Exception e) {
-				LOGGER.error("", e);
-			}
-
-			try {
-				// consumer 失败
-				Thread.sleep(1000);
-			} catch (InterruptedException e) {
-				LOGGER.error("", e);
 			}
 		}
+		this.brokers = brokers_sb.substring(0, brokers_sb.length() - 1);
+
+		String get_offset = infogen_zookeeper.get_data(InfoGen_ZooKeeper.offset(topic, partition));
+		if (get_offset != null) {
+			LOGGER.info("#使用zookeeper 中 offset为:" + offset);
+			this.offset = Long.valueOf(get_offset);
+		} else {
+			infogen_zookeeper.set_data(InfoGen_ZooKeeper.offset(topic, partition), offset.toString().getBytes(), -1);
+			LOGGER.info("#使用默认 offset为:" + offset);
+		}
+
+		this.topic = topic;
+		this.partition = partition;
 	}
 
-	private void run(Message_Handle handle) throws Exception {
+	private void run(InfoGen_Mapper mapper) {
+		if (offset > end_offset) {
+			LOGGER.info("#offset > end_offset");
+			return;
+		}
 		// 获取指定Topic partition的元数据
 		PartitionMetadata partition_metadata = findPartitionMetadata();
 		if (partition_metadata == null) {
@@ -117,6 +127,7 @@ public class InfoGen_Consumer {
 			Integer num_errors = 0;
 			Integer max_errors = 5;
 			for (;;) {
+				// TODO
 				// 读取大小为100000 超过会返回一个空的fetchResponse
 				FetchRequest req = new FetchRequestBuilder().clientId(clientId).addFetch(topic, partition, offset, 100000).build();
 				FetchResponse fetchResponse = consumer.fetch(req);
@@ -136,6 +147,7 @@ public class InfoGen_Consumer {
 					num_errors = 0;
 					Boolean need_sleep = true;
 					for (MessageAndOffset messageAndOffset : fetchResponse.messageSet(topic, partition)) {
+						// TODO
 						long currentOffset = messageAndOffset.offset();
 						if (currentOffset > end_offset) {
 							return;
@@ -145,7 +157,7 @@ public class InfoGen_Consumer {
 							ByteBuffer payload = messageAndOffset.message().payload();
 							byte[] bytes = new byte[payload.limit()];
 							payload.get(bytes);
-							handle.handle(topic, partition, messageAndOffset.offset(), new String(bytes, "UTF-8"));
+							mapper.mapper(topic, partition, messageAndOffset.offset(), new String(bytes, "UTF-8"));
 							offset = messageAndOffset.nextOffset();
 						}
 						need_sleep = false;

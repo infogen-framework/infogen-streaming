@@ -1,4 +1,4 @@
-package com.infogen.mapreduce;
+package com.infogen.mapper;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.GnuParser;

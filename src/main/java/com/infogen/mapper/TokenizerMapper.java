@@ -1,4 +1,4 @@
-package com.infogen.mapreduce;
+package com.infogen.mapper;
 
 import java.io.BufferedReader;
 import java.io.FileReader;

@@ -22,8 +22,8 @@ import com.hadoop.compression.lzo.LzopCodec;
  * @since 1.0
  * @version 1.0
  */
-public class InfoGen_Hdfs_LZOOutputStream implements Delayed {
-	private static Logger LOGGER = Logger.getLogger(InfoGen_Hdfs_LZOOutputStream.class);
+public class InfoGen_LZOOutputStream implements Delayed, InfoGen_OutputStream {
+	private static Logger LOGGER = Logger.getLogger(InfoGen_LZOOutputStream.class);
 	public static final String utf8 = "UTF-8";
 	public static final byte[] newline;
 	public static final byte[] keyValueSeparator;
@@ -43,11 +43,11 @@ public class InfoGen_Hdfs_LZOOutputStream implements Delayed {
 	private FileSystem fs;
 	private DataOutputStream lzoOutputStream;
 
-	public InfoGen_Hdfs_LZOOutputStream() {
+	public InfoGen_LZOOutputStream() {
 
 	}
 
-	public InfoGen_Hdfs_LZOOutputStream(Path path) throws IOException {
+	public InfoGen_LZOOutputStream(Path path) throws IOException {
 		configuration.set("io.compression.codecs", "org.apache.hadoop.io.compress.DefaultCodec,org.apache.hadoop.io.compress.GzipCodec,com.hadoop.compression.lzo.LzopCodec");
 		configuration.set("io.compression.codec.lzo.class", "com.hadoop.compression.lzo.LzopCodec");
 		this.path = path;
@@ -72,8 +72,8 @@ public class InfoGen_Hdfs_LZOOutputStream implements Delayed {
 	public Boolean write_line(String message) throws IOException {
 		synchronized (lock) {
 			if (lzoOutputStream != null) {
-				lzoOutputStream.write(InfoGen_Hdfs_LZOOutputStream.newline);
-				lzoOutputStream.write(message.getBytes(InfoGen_Hdfs_LZOOutputStream.utf8));
+				lzoOutputStream.write(InfoGen_LZOOutputStream.newline);
+				lzoOutputStream.write(message.getBytes(InfoGen_LZOOutputStream.utf8));
 				return true;
 			} else {
 				return false;
@@ -120,9 +120,9 @@ public class InfoGen_Hdfs_LZOOutputStream implements Delayed {
 
 	@Override
 	public int compareTo(Delayed o) {
-		if (this.delay_millis < ((InfoGen_Hdfs_LZOOutputStream) o).delay_millis) {
+		if (this.delay_millis < ((InfoGen_LZOOutputStream) o).delay_millis) {
 			return -1;
-		} else if (this.delay_millis > ((InfoGen_Hdfs_LZOOutputStream) o).delay_millis) {
+		} else if (this.delay_millis > ((InfoGen_LZOOutputStream) o).delay_millis) {
 			return 1;
 		} else {
 			return 0;

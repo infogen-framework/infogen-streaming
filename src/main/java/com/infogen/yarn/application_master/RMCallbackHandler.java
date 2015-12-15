@@ -166,7 +166,7 @@ public class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
 			try {
 				FileSystem fs = FileSystem.newInstance(conf);
 				ApplicationId appId = this.container.getId().getApplicationAttemptId().getApplicationId();
-				Path dst = new Path(fs.makeQualified(new Path("/user/" + applicationmaster_configuration.user)), Constants.APP_NAME + "/" + appId + "/" + Constants.JAR_NAME);
+				Path dst = new Path(fs.makeQualified(new Path("/user/" + applicationmaster_configuration.user)), applicationmaster_configuration.app_name + "/" + appId + "/" + Constants.JAR_NAME);
 				LOGGER.info("#ocalResources:" + dst);
 				FileStatus scFileStatus = fs.getFileStatus(dst);
 				LocalResource scRsrc = LocalResource.newInstance(ConverterUtils.getYarnUrlFromURI(dst.toUri()), LocalResourceType.FILE, LocalResourceVisibility.APPLICATION, scFileStatus.getLen(), scFileStatus.getModificationTime());
@@ -180,6 +180,9 @@ public class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
 			vargs.add(Environment.JAVA_HOME.$$() + "/bin/java");
 			vargs.add("-Xmx" + applicationmaster_configuration.containerMemory + "m");
 			vargs.add(Constants.JAVA_APPLICATION);
+			vargs.add("--mapper_clazz " + String.valueOf(applicationmaster_configuration.mapper_clazz.getName()));
+			vargs.add("--topic " + String.valueOf(applicationmaster_configuration.topic));
+			vargs.add("--zookeeper " + String.valueOf(applicationmaster_configuration.zookeeper));
 			vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stdout");
 			vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stderr");
 			// Get final commmand

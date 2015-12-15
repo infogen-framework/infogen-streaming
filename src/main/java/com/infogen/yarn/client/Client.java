@@ -20,15 +20,12 @@ import org.apache.hadoop.io.DataOutputBuffer;
 import org.apache.hadoop.security.Credentials;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.token.Token;
-import org.apache.hadoop.util.ExitUtil;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.ApplicationConstants.Environment;
 import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
-import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
-import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.api.records.LocalResource;
 import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
@@ -39,24 +36,23 @@ import org.apache.hadoop.yarn.api.records.QueueACL;
 import org.apache.hadoop.yarn.api.records.QueueInfo;
 import org.apache.hadoop.yarn.api.records.QueueUserACLInfo;
 import org.apache.hadoop.yarn.api.records.Resource;
-import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.hadoop.yarn.api.records.YarnClusterMetrics;
 import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.client.api.YarnClientApplication;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.ConverterUtils;
-import org.apache.log4j.LogManager;
 
+import com.infogen.yarn.Job_Configuration;
 import com.infogen.yarn.Constants;
 
 public class Client {
 	private static final Log LOGGER = LogFactory.getLog(Client.class);
-	private YarnClient yarnClient;
-	private Client_Configuration client_configuration;
+	public YarnClient yarnClient;
+	private Job_Configuration client_configuration;
 	private Configuration conf = new YarnConfiguration();
 
-	public Client(Client_Configuration client_configuration) throws ParseException {
+	public Client(Job_Configuration client_configuration) throws ParseException {
 		this.client_configuration = client_configuration;
 	}
 
@@ -87,7 +83,7 @@ public class Client {
 		//////////////////////////////////////////////// 配置appContext
 		YarnClientApplication app = yarnClient.createApplication();
 		ApplicationSubmissionContext appContext = app.getApplicationSubmissionContext();
-		appContext.setApplicationName(Constants.APP_NAME);
+		appContext.setApplicationName(client_configuration.app_name);
 		// application出错的时候containers重用还是kill
 		appContext.setKeepContainersAcrossApplicationAttempts(client_configuration.keepContainers);
 		// 请求资源时指定的节点表达式 Now only support AND(&&), in the future will provide support for OR(||), NOT(!)
@@ -160,7 +156,7 @@ public class Client {
 	private Map<String, LocalResource> copyFromLocalFile(ApplicationId applicationId, String scpath, String dstpath, Map<String, LocalResource> localResources) throws IOException {
 		LOGGER.info("#copyFromLocalFile:" + Constants.LOCAL_JAR_PATH + " to " + Constants.JAR_NAME);
 		FileSystem fs = FileSystem.get(conf);
-		Path jar_dst = new Path(fs.makeQualified(new Path("/user/" + client_configuration.user)), Constants.APP_NAME + "/" + applicationId + "/" + dstpath);
+		Path jar_dst = new Path(fs.makeQualified(new Path("/user/" + client_configuration.user)), client_configuration.app_name + "/" + applicationId + "/" + dstpath);
 		LOGGER.info("#jar_dst:" + jar_dst);
 		fs.copyFromLocalFile(new Path(scpath), jar_dst);
 		FileStatus jar_scFileStatus = fs.getFileStatus(jar_dst);
@@ -203,6 +199,11 @@ public class Client {
 		vargs.add("--container_vcores " + String.valueOf(client_configuration.containerVirtualCores));
 		vargs.add("--num_containers " + String.valueOf(client_configuration.numContainers));
 		vargs.add("--user " + String.valueOf(client_configuration.user));
+		vargs.add("--mapper_clazz " + String.valueOf(client_configuration.mapper_clazz.getName()));
+		vargs.add("--topic " + String.valueOf(client_configuration.topic));
+		vargs.add("--zookeeper " + String.valueOf(client_configuration.zookeeper));
+		vargs.add("--app_name " + String.valueOf(client_configuration.app_name));
+
 		if (client_configuration.debugFlag) {
 			vargs.add("--debug");
 		}
@@ -225,64 +226,6 @@ public class Client {
 	 *            Command line arguments
 	 */
 	public static void main(String[] args) {
-		// hadoop jar yarn-app-example-0.0.1-SNAPSHOT.jar timo.yarn_app_call_java_daemon.Client
-		// -jar yarn-app-example-0.0.1-SNAPSHOT.jar
-		// -num_containers 2
-		Client client = null;
-		ApplicationId appId = null;
-		try {
-			client = new Client(new Client_Configuration(args));
-			appId = client.run();
-		} catch (Throwable t) {
-			LOGGER.fatal("#Error running Client", t);
-			LogManager.shutdown();
-			ExitUtil.terminate(1, t);
-		}
-
-		while (true) {
-			try {
-				Thread.sleep(3 * 1000);
-			} catch (InterruptedException e) {
-				LOGGER.debug("#Thread sleep in monitoring loop interrupted", e);
-			}
-
-			// Get application report for the appId we are interested in
-			ApplicationReport report = null;
-			try {
-				report = client.yarnClient.getApplicationReport(appId);
-			} catch (YarnException | IOException e) {
-				LOGGER.fatal("#获取 application 状态失败", e);
-				LogManager.shutdown();
-				ExitUtil.terminate(2, e);
-			}
-
-			LOGGER.info("#获取 application 状态:" + ", appId=" + appId.getId() + ", clientToAMToken=" + report.getClientToAMToken() + ", appDiagnostics=" + report.getDiagnostics() + ", appMasterHost=" + report.getHost() + ", appQueue=" + report.getQueue());
-			LOGGER.info("                                           , appMasterRpcPort=" + report.getRpcPort() + ", appStartTime=" + report.getStartTime() + ", yarnAppState=" + report.getYarnApplicationState().toString() + ", distributedFinalState=" + report.getFinalApplicationStatus().toString());
-			LOGGER.info("                                          , appTrackingUrl=" + report.getTrackingUrl() + ", appUser=" + report.getUser());
-
-			YarnApplicationState state = report.getYarnApplicationState();
-			FinalApplicationStatus dsStatus = report.getFinalApplicationStatus();
-
-			if (YarnApplicationState.RUNNING == state) {
-				LOGGER.info("#Application is running...");
-				continue;
-			} else if (YarnApplicationState.FINISHED == state) {
-				if (FinalApplicationStatus.SUCCEEDED == dsStatus) {
-					LOGGER.info("#Application 执行成功");
-				} else {
-					LOGGER.info("#Application 执行完成，但有失败:" + " YarnState=" + state.toString() + ", DSFinalStatus=" + dsStatus.toString() + ". Breaking monitoring loop");
-				}
-				return;
-			} else if (YarnApplicationState.KILLED == state || YarnApplicationState.FAILED == state) {
-				LOGGER.info("#Application 没有完成:" + " YarnState=" + state.toString() + ", DSFinalStatus=" + dsStatus.toString() + ". Breaking monitoring loop");
-				LogManager.shutdown();
-				ExitUtil.terminate(2);
-			} else {
-				LOGGER.fatal("#未知 application 状态");
-				LogManager.shutdown();
-				ExitUtil.terminate(2);
-			}
-		}
 
 	}
 }
