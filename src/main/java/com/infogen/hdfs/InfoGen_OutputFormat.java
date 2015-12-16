@@ -6,5 +6,5 @@ package com.infogen.hdfs;
  * @version 1.0
  */
 public interface InfoGen_OutputFormat {
-	public void write_line(StringBuilder dir_stringbuilder, String topic, Integer partition, Long offset, String message);
+	public void write_line(String path, String topic, Integer partition, Long offset, String message);
 }

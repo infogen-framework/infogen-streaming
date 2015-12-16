@@ -2,12 +2,7 @@ package com.infogen.zookeeper;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
 
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
@@ -32,17 +27,10 @@ public class InfoGen_ZooKeeper {
 	private static final Logger LOGGER = LogManager.getLogger(InfoGen_ZooKeeper.class.getName());
 	public static Boolean alive = true;
 
-	private static class InnerInstance {
-		public static final InfoGen_ZooKeeper instance = new InfoGen_ZooKeeper();
-	}
-
-	public static InfoGen_ZooKeeper getInstance() {
-		return InnerInstance.instance;
-	}
-
 	private ZooKeeper zookeeper;
+
 	private String host_port;
-	private Map<String, Set<String>> map_auth_info = new HashMap<>();
+	private InfoGen_Zookeeper_Handle_Expired handle;
 	public static final String CONTEXT = "/infogen_consumers";
 
 	public static String topic(String topic) {
@@ -66,43 +54,38 @@ public class InfoGen_ZooKeeper {
 	}
 
 	// 在服务启动时调用
-	public void start_zookeeper(String host_port) throws IOException {
+	public void start_zookeeper(String host_port, InfoGen_Zookeeper_Handle_Expired handle) throws IOException {
 		if (zookeeper == null) {
 			this.host_port = host_port;
 			LOGGER.info("启动zookeeper:".concat(host_port));
 			this.zookeeper = new ZooKeeper(host_port, 10000, connect_watcher);
-
-			for (Entry<String, Set<String>> entry : map_auth_info.entrySet()) {
-				String scheme = entry.getKey();
-				for (String auth : entry.getValue()) {
-					zookeeper.addAuthInfo(scheme, auth.getBytes());
-				}
-			}
 			LOGGER.info("启动zookeeper成功:".concat(host_port));
+			InfoGen_ZooKeeper.alive = true;
 		} else {
 			LOGGER.info("已经存在一个运行的zookeeper实例");
 		}
 	}
 
+	public void restart_zookeeper() throws IOException {
+		start_zookeeper(host_port, handle);
+	}
+
 	// 只在重启zookeeper时调用
-	public void stop_zookeeper() throws InterruptedException {
+	public void stop_zookeeper() {
 		LOGGER.info("关闭zookeeper");
-		zookeeper.close();
+		try {
+			if (zookeeper != null) {
+				zookeeper.close();
+			}
+		} catch (InterruptedException e) {
+			LOGGER.error("关闭zookeeper异常:", e);
+		}
 		zookeeper = null;
 		LOGGER.info("关闭zookeeper成功");
 	}
 
 	public Boolean available() {
 		return (zookeeper != null);
-	}
-
-	////////////////////////////////////////////////// 安全认证//////////////////////////////////
-	public void add_auth_info(String scheme, String auth) {
-		Set<String> set_auth = map_auth_info.getOrDefault(scheme, new HashSet<String>());
-		if (!set_auth.contains(auth)) {
-			set_auth.add(auth);
-			zookeeper.addAuthInfo(scheme, auth.getBytes());
-		}
 	}
 
 	//////////////////////////////////////////////// 节点操作/////////////////////////////////////////////////
@@ -181,9 +164,9 @@ public class InfoGen_ZooKeeper {
 
 	public Stat set_data(String path, byte[] data, int version) {
 		try {
-			LOGGER.info("写入节点数据:".concat(path));
+			LOGGER.debug("写入节点数据:".concat(path));
 			Stat setData = zookeeper.setData(path, data, version);
-			LOGGER.info("写入节点数据成功:".concat(path));
+			LOGGER.debug("写入节点数据成功:".concat(path));
 			return setData;
 		} catch (Exception e) {
 			LOGGER.error("写入节点数据失败: ", e);
@@ -212,18 +195,31 @@ public class InfoGen_ZooKeeper {
 			if (event.getType() == Watcher.Event.EventType.None) {
 				switch (event.getState()) {
 				case SyncConnected:
+					InfoGen_ZooKeeper.alive = true;
 					break;
 				case Expired:
-					try {
-						LOGGER.error("zookeeper 连接过期");
-						stop_zookeeper();
-						start_zookeeper(host_port);
-						LOGGER.info(" 重启zookeeper并重新加载所有子节点监听");
-					} catch (Exception e) {
-						LOGGER.error("zookeeper 重连错误", e);
+					for (;;) {
+						try {
+							LOGGER.error("zookeeper 连接过期");
+							stop_zookeeper();
+							if (handle != null) {
+								LOGGER.info("自定义连接过期事件");
+								handle.handle_event();
+							}
+							break;
+						} catch (Exception e) {
+							LOGGER.error("zookeeper 重连错误", e);
+						}
+
+						try {
+							Thread.sleep(1000);
+						} catch (InterruptedException e) {
+							LOGGER.error("", e);
+						}
 					}
 					break;
 				case Disconnected:
+					InfoGen_ZooKeeper.alive = false;
 					break;
 				default:
 					break;

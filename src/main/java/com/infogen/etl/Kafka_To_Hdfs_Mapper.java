@@ -4,7 +4,6 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
-import com.infogen.hdfs.InfoGen_KafkaLZOOutputFormat;
 import com.infogen.hdfs.InfoGen_OutputFormat;
 import com.infogen.mapper.InfoGen_Mapper;
 
@@ -16,15 +15,9 @@ import com.infogen.mapper.InfoGen_Mapper;
 public class Kafka_To_Hdfs_Mapper implements InfoGen_Mapper {
 	// private static Logger LOGGER = Logger.getLogger(Kafka_To_Hdfs_Mapper.class);
 
-	private InfoGen_OutputFormat lzooutputformat;
+	private final ZoneId zoneidPlus8 = ZoneId.of("UTC+8"); // UTC+8
 
-	public Kafka_To_Hdfs_Mapper(String topic, Integer partition) {
-		lzooutputformat = new InfoGen_KafkaLZOOutputFormat(topic, partition);
-	}
-
-	final ZoneId zoneidPlus8 = ZoneId.of("UTC+8"); // UTC+8
-
-	public void mapper(String topic, Integer partition, Long offset, String message) {
+	public void mapper(String topic, Integer partition, Long offset, String message, InfoGen_OutputFormat output) {
 		String[] split = message.split(",");
 		if (split.length < 9) {
 			return;
@@ -33,9 +26,9 @@ public class Kafka_To_Hdfs_Mapper implements InfoGen_Mapper {
 		LocalDateTime localdatetime = LocalDateTime.ofInstant(Instant.ofEpochMilli(Long.valueOf(split[9])), zoneidPlus8);
 		StringBuilder dir_stringbuilder = new StringBuilder("hdfs://spark101:8020/infogen/output/").append(topic).append("/");
 		dir_stringbuilder.append(localdatetime.getYear()).append("-").append(localdatetime.getMonthValue()).append("-").append(localdatetime.getDayOfMonth()).append("/");
-		dir_stringbuilder.append(localdatetime.getHour()).append("-").append(localdatetime.getMinute()).append("/");
+		dir_stringbuilder.append(localdatetime.getHour()).append("/");
 
-		lzooutputformat.write_line(dir_stringbuilder, topic, partition, offset, message);
+		output.write_line(dir_stringbuilder.toString(), topic, partition, offset, message);
 	};
 
 }

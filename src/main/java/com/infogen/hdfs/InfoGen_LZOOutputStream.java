@@ -39,8 +39,9 @@ public class InfoGen_LZOOutputStream implements Delayed, InfoGen_OutputStream {
 
 	private Configuration configuration = new Configuration();
 	private Path path;
-	private Path path_index_tmp;
+	private Path path_index;
 	private FileSystem fs;
+	private String suffix = ".finish";
 	private DataOutputStream lzoOutputStream;
 
 	public InfoGen_LZOOutputStream() {
@@ -51,16 +52,16 @@ public class InfoGen_LZOOutputStream implements Delayed, InfoGen_OutputStream {
 		configuration.set("io.compression.codecs", "org.apache.hadoop.io.compress.DefaultCodec,org.apache.hadoop.io.compress.GzipCodec,com.hadoop.compression.lzo.LzopCodec");
 		configuration.set("io.compression.codec.lzo.class", "com.hadoop.compression.lzo.LzopCodec");
 		this.path = path;
-		this.path_index_tmp = path.suffix(LzoIndex.LZO_TMP_INDEX_SUFFIX);
+		this.path_index = path.suffix(LzoIndex.LZO_INDEX_SUFFIX);
 		this.fs = path.getFileSystem(configuration);
 
 		fs.delete(path, true);
-		fs.delete(path.suffix(LzoIndex.LZO_TMP_INDEX_SUFFIX), true);
 		fs.delete(path.suffix(LzoIndex.LZO_INDEX_SUFFIX), true);
+		fs.delete(path.suffix(suffix), true);
 
 		LOGGER.info("#创建流-写入LZO文件并使用索引:" + path.toString());
 		FSDataOutputStream fileOut = fs.create(path, false);
-		FSDataOutputStream indexOut = fs.create(path_index_tmp, false);
+		FSDataOutputStream indexOut = fs.create(path_index, false);
 
 		LzopCodec codec = new LzopCodec();
 		codec.setConf(configuration);
@@ -94,7 +95,7 @@ public class InfoGen_LZOOutputStream implements Delayed, InfoGen_OutputStream {
 		return path;
 	}
 
-	public void close(String suffix) throws IOException {
+	public void close() throws IOException {
 		synchronized (lock) {
 			if (lzoOutputStream != null) {
 				LOGGER.info("#关闭流-写入LZO文件并使用索引:" + path.toString());
@@ -105,10 +106,10 @@ public class InfoGen_LZOOutputStream implements Delayed, InfoGen_OutputStream {
 				fs.rename(path, new_path);
 
 				FileStatus stat = fs.getFileStatus(new_path);
-				if (stat.getLen() <= stat.getBlockSize()) {
-					fs.delete(path_index_tmp, false);
+				if (stat.getLen() <= (stat.getBlockSize() * 1.2)) {
+					fs.delete(path_index, false);
 				} else {
-					fs.rename(path_index_tmp, new_path.suffix(LzoIndex.LZO_INDEX_SUFFIX));
+					fs.rename(path_index, new_path.suffix(LzoIndex.LZO_INDEX_SUFFIX));
 				}
 			} else {
 				LOGGER.error("#流已经关闭-写入LZO文件并使用索引:" + path.toString());
