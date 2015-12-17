@@ -1,5 +1,7 @@
 package com.infogen.mapper;
 
+import java.io.IOException;
+
 import com.infogen.hdfs.InfoGen_OutputFormat;
 
 /**
@@ -8,5 +10,5 @@ import com.infogen.hdfs.InfoGen_OutputFormat;
  * @version 1.0
  */
 public interface InfoGen_Mapper {
-	public void mapper(String topic, Integer partition, Long offset, String message,InfoGen_OutputFormat output);
+	public void mapper(String topic, Integer partition, Long offset, String message,InfoGen_OutputFormat output) throws IllegalArgumentException, IOException;
 }

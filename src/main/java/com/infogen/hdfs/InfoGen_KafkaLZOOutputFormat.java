@@ -28,7 +28,7 @@ public class InfoGen_KafkaLZOOutputFormat implements InfoGen_OutputFormat {
 
 	private ConcurrentHashMap<String, InfoGen_LZOOutputStream> map = new ConcurrentHashMap<>(10000);
 
-	public void write_line(String path, String topic, Integer partition, Long offset, String message) {
+	public void write_line(String path, String topic, Integer partition, Long offset, String message) throws IllegalArgumentException, IOException {
 		Integer num_errors = 0;
 		Integer max_errors = 5;
 
@@ -37,7 +37,7 @@ public class InfoGen_KafkaLZOOutputFormat implements InfoGen_OutputFormat {
 		InfoGen_LZOOutputStream infogen_hdfs_lzooutputstream = map.get(path);
 		for (;;) {// 尾递归优化代码可读性差，用循环代替
 			try {
-				if (infogen_hdfs_lzooutputstream != null && infogen_hdfs_lzooutputstream.write_line(message)) {
+				if (infogen_hdfs_lzooutputstream.write_line(message)) {
 					break;
 				} else {
 					infogen_hdfs_lzooutputstream = new InfoGen_LZOOutputStream(new Path(full_path));
@@ -47,15 +47,7 @@ public class InfoGen_KafkaLZOOutputFormat implements InfoGen_OutputFormat {
 				LOGGER.error("#写入hdfs失败:", e);
 				num_errors++;
 				if (num_errors > max_errors) {
-					try {
-						num_errors = 0;
-						if (infogen_hdfs_lzooutputstream != null) {
-							infogen_hdfs_lzooutputstream.close();
-						}
-						LOGGER.error("#重试超过5次,打开新的流来重试写入");
-					} catch (IOException e2) {
-						LOGGER.error("#关闭流失败", e2);
-					}
+					throw e;
 				} else {
 					try {
 						Thread.sleep(1000);

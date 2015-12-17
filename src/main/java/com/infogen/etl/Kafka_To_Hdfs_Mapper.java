@@ -1,5 +1,6 @@
 package com.infogen.etl;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -17,7 +18,7 @@ public class Kafka_To_Hdfs_Mapper implements InfoGen_Mapper {
 
 	private final ZoneId zoneidPlus8 = ZoneId.of("UTC+8"); // UTC+8
 
-	public void mapper(String topic, Integer partition, Long offset, String message, InfoGen_OutputFormat output) {
+	public void mapper(String topic, Integer partition, Long offset, String message, InfoGen_OutputFormat output) throws IllegalArgumentException, IOException {
 		String[] split = message.split(",");
 		if (split.length < 9) {
 			return;

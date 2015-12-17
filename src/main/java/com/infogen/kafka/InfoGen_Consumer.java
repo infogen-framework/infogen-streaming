@@ -90,7 +90,7 @@ public class InfoGen_Consumer {
 		}
 	}
 
-	private void run() {
+	private void run() throws IOException {
 		LOGGER.info("#获取指定Topic partition的元数据：topic-" + topic + " partition-" + partition);
 		PartitionMetadata partition_metadata = findPartitionMetadata();
 		if (partition_metadata == null) {
@@ -187,10 +187,18 @@ public class InfoGen_Consumer {
 							int limit = payload.limit();
 							byte[] bytes = new byte[limit];
 							payload.get(bytes);
+
 							try {
 								mapper.mapper(topic, partition, messageAndOffset.offset(), new String(bytes, "UTF-8"), infogen_kafkalzooutputformat);
 							} catch (UnsupportedEncodingException e) {
-								LOGGER.error("#数据转换失败:", e);
+								LOGGER.error("#kafka数据转换String失败:", e);
+								throw e;
+							} catch (IllegalArgumentException e) {
+								LOGGER.error("#获取hdfs Path失败:", e);
+								throw e;
+							} catch (IOException e) {
+								LOGGER.error("#创建hdfs流失败:", e);
+								throw e;
 							}
 
 							fetch_size += limit;
