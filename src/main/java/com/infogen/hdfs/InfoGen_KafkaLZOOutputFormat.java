@@ -14,14 +14,25 @@ import org.apache.log4j.Logger;
  */
 public class InfoGen_KafkaLZOOutputFormat implements InfoGen_OutputFormat {
 	private static Logger LOGGER = Logger.getLogger(InfoGen_KafkaLZOOutputFormat.class);
+
+	private static class InnerInstance {
+		public static final InfoGen_OutputFormat instance = new InfoGen_KafkaLZOOutputFormat();
+	}
+
+	public static InfoGen_OutputFormat getInstance() {
+		return InnerInstance.instance;
+	}
+
+	private InfoGen_KafkaLZOOutputFormat() {
+	}
+
 	private ConcurrentHashMap<String, InfoGen_LZOOutputStream> map = new ConcurrentHashMap<>(10000);
-	public Long commit_offset;// 完成事务-写入到hdfs且流关闭
 
 	public void write_line(String path, String topic, Integer partition, Long offset, String message) {
 		Integer num_errors = 0;
 		Integer max_errors = 5;
 
-		String full_path = new StringBuilder(path).append(partition).append(".").append(offset).append("-").toString();
+		String full_path = new StringBuilder(path).append("-").append(partition).append(".").append(offset).toString();
 
 		InfoGen_LZOOutputStream infogen_hdfs_lzooutputstream = map.get(path);
 		for (;;) {// 尾递归优化代码可读性差，用循环代替
@@ -42,8 +53,8 @@ public class InfoGen_KafkaLZOOutputFormat implements InfoGen_OutputFormat {
 							infogen_hdfs_lzooutputstream.close();
 						}
 						LOGGER.error("#重试超过5次,打开新的流来重试写入");
-					} catch (IOException e1) {
-						LOGGER.error("#关闭流失败", e1);
+					} catch (IOException e2) {
+						LOGGER.error("#关闭流失败", e2);
 					}
 				} else {
 					try {
@@ -56,10 +67,17 @@ public class InfoGen_KafkaLZOOutputFormat implements InfoGen_OutputFormat {
 		}
 	}
 
-	public void close_all() throws IOException {
+	public Boolean close_all() {
+		Boolean flag = true;
 		for (Entry<String, InfoGen_LZOOutputStream> entry : map.entrySet()) {
 			map.remove(entry.getKey());
-			entry.getValue().close();
+			try {
+				entry.getValue().close();
+			} catch (IOException e) {
+				flag = false;
+				LOGGER.error("#关闭流失败", e);
+			}
 		}
+		return flag;
 	}
 }

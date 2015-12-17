@@ -11,7 +11,12 @@ public class MemoryStats {
 		return bytes / MEGABYTE;
 	}
 
+	public static void main(String[] args) {
+		LOGGER.info("a" + null);
+	}
+
 	public void printMemoryStats() {
+
 		long freeMemory = bytesToMegabytes(Runtime.getRuntime().freeMemory());
 		long totalMemory = bytesToMegabytes(Runtime.getRuntime().totalMemory());
 		long maxMemory = bytesToMegabytes(Runtime.getRuntime().maxMemory());

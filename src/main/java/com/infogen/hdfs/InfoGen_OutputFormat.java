@@ -7,4 +7,7 @@ package com.infogen.hdfs;
  */
 public interface InfoGen_OutputFormat {
 	public void write_line(String path, String topic, Integer partition, Long offset, String message);
+
+	public Boolean close_all();
+
 }

@@ -2997,3 +2997,4 @@ org.apache.zookeeper.KeeperException$NoNodeException: KeeperErrorCode = NoNode f
 [framework] 2015-12-16 16:50:36,693 - com.infogen.hdfs.InfoGen_LZOOutputStream -384941 [main] INFO  com.infogen.hdfs.InfoGen_LZOOutputStream  - #创建流-写入LZO文件并使用索引:hdfs://spark101:8020/infogen/output/infogen_topic_tracking/2015-12-16/16/1.4723014-
 [framework] 2015-12-16 16:51:36,642 - com.infogen.hdfs.InfoGen_LZOOutputStream -444890 [Thread-0] INFO  com.infogen.hdfs.InfoGen_LZOOutputStream  - #关闭流-写入LZO文件并使用索引:hdfs://spark101:8020/infogen/output/infogen_topic_tracking/2015-12-16/16/1.4723014-
 [framework] 2015-12-16 16:51:37,428 - com.infogen.hdfs.InfoGen_LZOOutputStream -445676 [main] INFO  com.infogen.hdfs.InfoGen_LZOOutputStream  - #创建流-写入LZO文件并使用索引:hdfs://spark101:8020/infogen/output/infogen_topic_tracking/2015-12-16/16/1.4723030-
+[framework] 2015-12-17 17:50:03,144 - com.infogen.etl.MemoryStats -1    [main] INFO  com.infogen.etl.MemoryStats  - anull

@@ -33,24 +33,34 @@ public class InfoGen_ZooKeeper {
 	private InfoGen_Zookeeper_Handle_Expired handle;
 	public static final String CONTEXT = "/infogen_consumers";
 
+	// /topic
 	public static String topic(String topic) {
 		return CONTEXT.concat("/").concat(topic);
 	}
 
-	public static String offset(String topic) {
-		return CONTEXT.concat("/").concat(topic).concat("/").concat("offset");
+	// /topic/group
+	public static String topic(String topic, String group) {
+		return CONTEXT.concat("/").concat(topic).concat("/").concat(group);
 	}
 
-	public static String offset(String topic, Integer partition) {
-		return CONTEXT.concat("/").concat(topic).concat("/").concat("offset").concat("/").concat(partition.toString());
+	// /topic/group/offset
+	public static String offset(String topic, String group) {
+		return CONTEXT.concat("/").concat(topic).concat("/").concat(group).concat("/").concat("offset");
 	}
 
-	public static String partition(String topic) {
-		return CONTEXT.concat("/").concat(topic).concat("/").concat("partition");
+	// /topic/group/offset/partition
+	public static String offset(String topic, String group, Integer partition) {
+		return CONTEXT.concat("/").concat(topic).concat("/").concat(group).concat("/").concat("offset").concat("/").concat(partition.toString());
 	}
 
-	public static String partition(String topic, Integer partition) {
-		return CONTEXT.concat("/").concat(topic).concat("/").concat("partition").concat("/").concat(partition.toString());
+	// /topic/group/partition
+	public static String partition(String topic, String group) {
+		return CONTEXT.concat("/").concat(topic).concat("/").concat(group).concat("/").concat("partition");
+	}
+
+	// /topic/group/partition/partition
+	public static String partition(String topic, String group, Integer partition) {
+		return CONTEXT.concat("/").concat(topic).concat("/").concat(group).concat("/").concat("partition").concat("/").concat(partition.toString());
 	}
 
 	// 在服务启动时调用
