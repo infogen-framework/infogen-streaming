@@ -32,13 +32,13 @@ public class ApplicationMaster_Configuration {
 	public Integer containerVirtualCores = 1;
 	// Priority of the request
 	public Integer requestPriority;
-	public String app_attempt_id;
 
 	/////////////////////////////////////////////////////////////////////////////////////
-	public String app_name = "infogen-etl-kafka";
-	public Class<? extends InfoGen_Mapper> mapper_clazz;
-	public String topic;
+	public String app_name = "infogen";
 	public String zookeeper;
+	public String topic;
+	public String group;
+	public Class<? extends InfoGen_Mapper> mapper_clazz;
 
 	private Options opts = builder_applicationmaster();
 
@@ -56,10 +56,11 @@ public class ApplicationMaster_Configuration {
 			System.exit(0);
 		}
 
-		topic = cliParser.getOptionValue("topic");
 		zookeeper = cliParser.getOptionValue("zookeeper");
+		topic = cliParser.getOptionValue("topic");
+		group = cliParser.getOptionValue("group");
 		app_name = cliParser.getOptionValue("app_name");
-		if (topic == null || zookeeper == null || app_name == null) {
+		if (zookeeper == null || topic == null || group == null || app_name == null) {
 			printUsage(opts);
 			System.exit(0);
 		}
@@ -68,6 +69,7 @@ public class ApplicationMaster_Configuration {
 		if (cliParser.hasOption("debug")) {
 			dumpOutDebugInfo();
 		}
+
 		user = cliParser.getOptionValue("user", System.getProperty("user.name"));
 		containerMemory = Integer.parseInt(cliParser.getOptionValue("container_memory", "512"));
 		containerVirtualCores = Integer.parseInt(cliParser.getOptionValue("container_vcores", "1"));
@@ -76,7 +78,6 @@ public class ApplicationMaster_Configuration {
 			throw new IllegalArgumentException("#containers 不能小于1");
 		}
 		requestPriority = Integer.parseInt(cliParser.getOptionValue("priority", "0"));
-		app_attempt_id = cliParser.getOptionValue("app_attempt_id", "");
 	}
 
 	private void dumpOutDebugInfo() {
@@ -111,9 +112,12 @@ public class ApplicationMaster_Configuration {
 		opts.addOption("priority", true, "Application Priority. Default 0");
 		opts.addOption("debug", false, "Dump out debug information");
 		opts.addOption("help", false, "Print usage");
-		opts.addOption("mapper_clazz", true, "mapper_clazz");
-		opts.addOption("topic", true, "topic");
+		//
+		opts.addOption("app_name", true, "app_name");
 		opts.addOption("zookeeper", true, "zookeeper");
+		opts.addOption("topic", true, "topic");
+		opts.addOption("group", true, "group");
+		opts.addOption("mapper_clazz", true, "mapper_clazz");
 		return opts;
 	}
 

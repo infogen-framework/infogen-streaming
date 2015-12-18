@@ -21,6 +21,11 @@ public class NMCallbackHandler implements NMClientAsync.CallbackHandler {
 	private static final Log LOG = LogFactory.getLog(NMCallbackHandler.class);
 	private ConcurrentMap<ContainerId, Container> containers = new ConcurrentHashMap<ContainerId, Container>();
 	private final ApplicationMaster AM;
+	private NMClientAsync nmClientAsync;
+
+	public void setNmClientAsync(NMClientAsync nmClientAsync) {
+		this.nmClientAsync = nmClientAsync;
+	}
 
 	public NMCallbackHandler(ApplicationMaster applicationMaster) {
 		this.AM = applicationMaster;
@@ -52,7 +57,7 @@ public class NMCallbackHandler implements NMClientAsync.CallbackHandler {
 		}
 		Container container = containers.get(containerId);
 		if (container != null) {
-			AM.nmClientAsync.getContainerStatusAsync(containerId, container.getNodeId());
+			nmClientAsync.getContainerStatusAsync(containerId, container.getNodeId());
 		}
 	}
 

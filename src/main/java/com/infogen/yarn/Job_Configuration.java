@@ -33,9 +33,9 @@ public class Job_Configuration {
 	public Boolean debugFlag = false;
 
 	////////////////////////////////////////////////////////////////////////
-	public String app_name = "infogen-etl-kafka";
 	public Class<? extends InfoGen_Mapper> mapper_clazz;
 	public String topic;
+	public String group;
 	public String zookeeper;
 
 	public Job_Configuration() {

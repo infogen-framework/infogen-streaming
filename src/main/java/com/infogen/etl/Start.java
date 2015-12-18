@@ -15,6 +15,7 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.util.Shell;
 
+import com.infogen.mapper.InfoGen_Mapper;
 import com.infogen.yarn.InfoGen_Job;
 import com.infogen.yarn.Job_Configuration;
 
@@ -26,17 +27,19 @@ import com.infogen.yarn.Job_Configuration;
 public class Start {
 	private static final Log LOGGER = LogFactory.getLog(Start.class);
 
-	public static void main(String[] args) throws ParseException {
+	// hadoop jar yarn-app-example-0.0.1-SNAPSHOT.jar timo.yarn_app_call_java_daemon.Client
+	// -jar yarn-app-example-0.0.1-SNAPSHOT.jar
+	// -num_containers 2
+	public static void main(String[] args) throws ParseException, ClassNotFoundException {
 		Job_Configuration job_configuration = get_configuration(args);
-		InfoGen_Job infogen_job = new InfoGen_Job(job_configuration);
-
-		infogen_job.run("infogen-etl-kafka", "infogen_topic_tracking", "172.16.8.97:2181,172.16.8.98:2181,172.16.8.99:2181", Kafka_To_Hdfs_Mapper.class);
+		InfoGen_Job infogen_job = new InfoGen_Job(job_configuration, "infogen_etl_kafka_to_hdfs_lzo");
+		infogen_job.submit();
 	}
 
 	// Command line options
 	private static Options opts = builder_client();
 
-	public static Job_Configuration get_configuration(String[] args) throws ParseException {
+	public static Job_Configuration get_configuration(String[] args) throws ParseException, ClassNotFoundException {
 		Job_Configuration job_configuration = new Job_Configuration();
 		LOGGER.info("#初始化Client配置");
 		if (args.length == 0) {
@@ -55,6 +58,13 @@ public class Start {
 			dumpOutDebugInfo();
 			job_configuration.debugFlag = true;
 		}
+
+		job_configuration.zookeeper = cliParser.getOptionValue("zookeeper", null);
+		job_configuration.topic = cliParser.getOptionValue("topic", null);
+		job_configuration.group = cliParser.getOptionValue("group", null);
+		@SuppressWarnings("unchecked")
+		Class<? extends InfoGen_Mapper> mapper_clazz = (Class<? extends InfoGen_Mapper>) Class.forName(cliParser.getOptionValue("mapper_clazz", null));
+		job_configuration.mapper_clazz = mapper_clazz;
 
 		job_configuration.user = cliParser.getOptionValue("user", System.getProperty("user.name"));
 		job_configuration.amPriority = Integer.parseInt(cliParser.getOptionValue("priority", "0"));
@@ -91,19 +101,24 @@ public class Start {
 
 	public static Options builder_client() {
 		Options opts = new Options();
+		opts.addOption("user", true, "执行用户");
 		opts.addOption("priority", true, "Application Priority. Default 0");
 		opts.addOption("queue", true, "RM Queue in which this application is to be submitted");
+		opts.addOption("keep_containers_across_application_attempts", false, "Flag to indicate whether to keep containers across application attempts. If the flag is true, running containers will not be killed when" + " application attempt fails and these containers will be retrieved by" + " the new application attempt ");
+		opts.addOption("attempt_failures_validity_interval", true, "when attempt_failures_validity_interval in milliseconds is set to > 0," + "the failure number will not take failures which happen out of " + "the validityInterval into failure count. " + "If failure count reaches to maxAppAttempts, " + "the application will be failed.");
+		opts.addOption("node_label_expression", true, "Node label expression to determine the nodes" + " where all the containers of this application" + " will be allocated, \"\" means containers" + " can be allocated anywhere, if you don't specify the option," + " default node_label_expression of queue will be used.");
 		opts.addOption("master_memory", true, "Amount of memory in MB to be requested to run the application master");
 		opts.addOption("master_vcores", true, "Amount of virtual cores to be requested to run the application master");
-		opts.addOption("user", true, "执行用户");
 		opts.addOption("container_memory", true, "Amount of memory in MB to be requested to run the command");
 		opts.addOption("container_vcores", true, "Amount of virtual cores to be requested to run the command");
 		opts.addOption("num_containers", true, "No. of containers on which the command needs to be executed");
-		opts.addOption("keep_containers_across_application_attempts", false, "Flag to indicate whether to keep containers across application attempts. If the flag is true, running containers will not be killed when" + " application attempt fails and these containers will be retrieved by" + " the new application attempt ");
-		opts.addOption("attempt_failures_validity_interval", true, "when attempt_failures_validity_interval in milliseconds is set to > 0," + "the failure number will not take failures which happen out of " + "the validityInterval into failure count. " + "If failure count reaches to maxAppAttempts, " + "the application will be failed.");
 		opts.addOption("debug", false, "Dump out debug information");
 		opts.addOption("help", false, "Print usage");
-		opts.addOption("node_label_expression", true, "Node label expression to determine the nodes" + " where all the containers of this application" + " will be allocated, \"\" means containers" + " can be allocated anywhere, if you don't specify the option," + " default node_label_expression of queue will be used.");
+		//
+		opts.addOption("zookeeper", true, "zookeeper");
+		opts.addOption("topic", true, "topic");
+		opts.addOption("group", true, "group");
+		opts.addOption("mapper_clazz", true, "mapper_clazz");
 		return opts;
 	}
 

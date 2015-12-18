@@ -25,6 +25,11 @@ import com.infogen.zookeeper.InfoGen_ZooKeeper;
  */
 public class InfoGen_Container {
 	private static final Log LOGGER = LogFactory.getLog(InfoGen_Container.class);
+	private static final long MEGABYTE = 1024L * 1024L;
+
+	public static long bytesToMegabytes(long bytes) {
+		return bytes / MEGABYTE;
+	}
 
 	private void run(String zookeeper, String topic, String group, String mapper_clazz) throws ClassNotFoundException, IOException {
 		@SuppressWarnings("unchecked")
@@ -112,6 +117,15 @@ public class InfoGen_Container {
 
 	public static void main(String[] args) throws IOException, ParseException, ClassNotFoundException {
 		LOGGER.error("#InfoGen_Container启动");
+		long freeMemory = bytesToMegabytes(Runtime.getRuntime().freeMemory());
+		long totalMemory = bytesToMegabytes(Runtime.getRuntime().totalMemory());
+		long maxMemory = bytesToMegabytes(Runtime.getRuntime().maxMemory());
+
+		LOGGER.error("################################################################");
+		LOGGER.error("# The amount of free memory in the JVM:      " + freeMemory + "MB");
+		LOGGER.error("# The total amount of memory in the JVM:     " + totalMemory + "MB");
+		LOGGER.error("# The maximum amount of memory that the JVM: " + maxMemory + "MB");
+		LOGGER.error("################################################################");
 
 		CommandLine cliParser = new GnuParser().parse(opts, args);
 

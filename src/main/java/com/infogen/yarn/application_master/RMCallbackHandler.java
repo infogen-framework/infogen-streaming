@@ -15,6 +15,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.ApplicationConstants.Environment;
 import org.apache.hadoop.yarn.api.ContainerManagementProtocol;
+import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerExitStatus;
@@ -27,6 +28,7 @@ import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.api.records.NodeReport;
 import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
+import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 
@@ -42,24 +44,36 @@ public class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
 
 	private final ApplicationMaster AM;
 	private final ApplicationMaster_Configuration applicationmaster_configuration;
+	private final ApplicationAttemptId appAttemptID;
 	private final NMCallbackHandler nmcallbackhandler;
+	private AMRMClientAsync<ContainerRequest> amRMClient;
+	private NMClientAsync nmClientAsync;
 
-	public RMCallbackHandler(ApplicationMaster applicationMaster, ApplicationMaster_Configuration applicationmaster_configuration, NMCallbackHandler nmcallbackhandler) {
+	public void setAmRMClient(AMRMClientAsync<ContainerRequest> amRMClient) {
+		this.amRMClient = amRMClient;
+	}
+
+	public void setNmClientAsync(NMClientAsync nmClientAsync) {
+		this.nmClientAsync = nmClientAsync;
+	}
+
+	public RMCallbackHandler(ApplicationMaster applicationMaster, ApplicationMaster_Configuration applicationmaster_configuration, NMCallbackHandler nmcallbackhandler, ApplicationAttemptId appAttemptID) {
 		this.AM = applicationMaster;
 		this.applicationmaster_configuration = applicationmaster_configuration;
 		this.nmcallbackhandler = nmcallbackhandler;
+		this.appAttemptID = appAttemptID;
 	}
 
 	@Override
 	public void onContainersCompleted(List<ContainerStatus> completedContainers) {
 		LOGGER.info("#onContainersCompleted, completedCnt=" + completedContainers.size());
 		for (ContainerStatus containerStatus : completedContainers) {
-			LOGGER.info("#container状态 appAttemptID =" + AM.appAttemptID + "  containerID=" + containerStatus.getContainerId() + ", state=" + containerStatus.getState() + ", exitStatus=" + containerStatus.getExitStatus() + ", diagnostics=" + containerStatus.getDiagnostics());
+			LOGGER.info("#container状态 appAttemptID =" + appAttemptID + "  containerID=" + containerStatus.getContainerId() + ", state=" + containerStatus.getState() + ", exitStatus=" + containerStatus.getExitStatus() + ", diagnostics=" + containerStatus.getDiagnostics());
 			assert (containerStatus.getState() == ContainerState.COMPLETE);
 			int exitStatus = containerStatus.getExitStatus();
 			// 失败的container
 			if (exitStatus != 0) {
-				if (ContainerExitStatus.ABORTED == exitStatus) {
+				if (exitStatus == ContainerExitStatus.ABORTED) {
 					// 多种原因被框架kill
 					AM.numAllocatedContainers.decrementAndGet();
 					AM.numRequestedContainers.decrementAndGet();
@@ -75,18 +89,15 @@ public class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
 			}
 		}
 
-		// ask for more containers if any failed
+		// ask for more containers if ContainerExitStatus.ABORTED
 		LOGGER.info("#numTotalContainers: " + applicationmaster_configuration.numTotalContainers + ", numRequestedContainers: " + AM.numRequestedContainers.get());
 		int askCount = applicationmaster_configuration.numTotalContainers - AM.numRequestedContainers.get();
 		AM.numRequestedContainers.addAndGet(askCount);
-
 		LOGGER.info("#请求container数量: " + askCount);
-		if (askCount > 0) {
-			for (int i = 0; i < askCount; ++i) {
-				ContainerRequest containerAsk = AM.setupContainerAskForRM();
-				AM.amRMClient.addContainerRequest(containerAsk);
-				LOGGER.info("Sent containerAsk 1");
-			}
+		for (int i = 0; i < askCount; ++i) {
+			ContainerRequest containerAsk = AM.setupContainerAskForRM();
+			amRMClient.addContainerRequest(containerAsk);
+			LOGGER.info("Sent containerAsk 1");
 		}
 
 	}
@@ -124,7 +135,7 @@ public class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
 	@Override
 	public void onError(Throwable e) {
 		LOGGER.info("=====onError()=====, {}", e);
-		AM.amRMClient.stop();
+		amRMClient.stop();
 	}
 
 	/**
@@ -180,9 +191,10 @@ public class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
 			vargs.add(Environment.JAVA_HOME.$$() + "/bin/java");
 			vargs.add("-Xmx" + applicationmaster_configuration.containerMemory + "m");
 			vargs.add(Constants.JAVA_APPLICATION);
-			vargs.add("--mapper_clazz " + String.valueOf(applicationmaster_configuration.mapper_clazz.getName()));
-			vargs.add("--topic " + String.valueOf(applicationmaster_configuration.topic));
 			vargs.add("--zookeeper " + String.valueOf(applicationmaster_configuration.zookeeper));
+			vargs.add("--topic " + String.valueOf(applicationmaster_configuration.topic));
+			vargs.add("--group " + String.valueOf(applicationmaster_configuration.group));
+			vargs.add("--mapper_clazz " + String.valueOf(applicationmaster_configuration.mapper_clazz.getName()));
 			vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stdout");
 			vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stderr");
 			// Get final commmand
@@ -197,7 +209,7 @@ public class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
 			LOGGER.info("#startContainerAsync");
 			ContainerLaunchContext ctx = ContainerLaunchContext.newInstance(localResources, environment, commands, null, null, null);
 			containerListener.addContainer(container.getId(), container);
-			AM.nmClientAsync.startContainerAsync(container, ctx);
+			nmClientAsync.startContainerAsync(container, ctx);
 		}
 	}
 }

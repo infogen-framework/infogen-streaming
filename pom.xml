@@ -86,7 +86,7 @@
 							<!-- classpath前缀 -->
 							<classpathPrefix>lib/</classpathPrefix>
 							<!-- 主程序入口 -->
-							<mainClass>com.infogen.mapreduce.WordCount</mainClass>
+							<mainClass>com.infogen.etl.Start</mainClass>
 						</manifest>
 					</archive>
 					<excludes>

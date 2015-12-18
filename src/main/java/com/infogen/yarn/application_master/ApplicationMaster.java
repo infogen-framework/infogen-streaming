@@ -37,6 +37,8 @@ import org.apache.hadoop.yarn.security.AMRMTokenIdentifier;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.log4j.LogManager;
 
+import com.infogen.yarn.DefaultEntry;
+
 public class ApplicationMaster {
 	private static final Log LOGGER = LogFactory.getLog(ApplicationMaster.class);
 
@@ -51,38 +53,44 @@ public class ApplicationMaster {
 	protected ApplicationMaster_Configuration applicationmaster_configuration;
 	// Configuration
 	protected Configuration conf = new YarnConfiguration();
-	// Handle to communicate with the Resource Manager
-	protected AMRMClientAsync<ContainerRequest> amRMClient;
-	// Handle to communicate with the Node Manager
-	protected NMClientAsync nmClientAsync;
 
 	// 发送请求的数量/准备好的数量/完成的数量/失败的数量
 	// Needed as once requested, we should not request for containers again.
-	protected AtomicInteger numRequestedContainers = new AtomicInteger();
-	protected AtomicInteger numAllocatedContainers = new AtomicInteger();
-	protected AtomicInteger numCompletedContainers = new AtomicInteger();
-	protected AtomicInteger numFailedContainers = new AtomicInteger();
-
-	// Launch threads
-	protected List<Thread> launchThreads = new ArrayList<Thread>();
-
-	// Application Attempt Id ( combination of attemptId and fail count )
-	protected ApplicationAttemptId appAttemptID;
-
-	// In both secure and non-secure modes, this points to the job-submitter.
+	protected final AtomicInteger numRequestedContainers = new AtomicInteger();
+	protected final AtomicInteger numAllocatedContainers = new AtomicInteger();
+	protected final AtomicInteger numCompletedContainers = new AtomicInteger();
+	protected final AtomicInteger numFailedContainers = new AtomicInteger();
+	protected final List<Thread> launchThreads = new ArrayList<Thread>();
 
 	public ApplicationMaster(ApplicationMaster_Configuration applicationmaster_configuration) throws ParseException {
 		this.applicationmaster_configuration = applicationmaster_configuration;
 	}
 
-	public void check_environment() {
+	/**
+	 * @param args
+	 *            Command line args
+	 */
+	public static void main(String[] args) {
+		ApplicationMaster appMaster = null;
+		DefaultEntry<AMRMClientAsync<ContainerRequest>, NMClientAsync> entry = null;
+		try {
+			appMaster = new ApplicationMaster(new ApplicationMaster_Configuration(args));
+			entry = appMaster.run();
+		} catch (Throwable t) {
+			LOGGER.fatal("#Error running ApplicationMaster", t);
+			LogManager.shutdown();
+			ExitUtil.terminate(1, t);
+		}
+
+		appMaster.monitoring(entry.getKey(), entry.getValue());
+	}
+
+	public ApplicationAttemptId check_environment() {
+		// Application Attempt Id ( combination of attemptId and fail count )
+		ApplicationAttemptId appAttemptID;
 		Map<String, String> envs = System.getenv();
 		if (!envs.containsKey(Environment.CONTAINER_ID.name())) {
-			if (applicationmaster_configuration.app_attempt_id.isEmpty()) {
-				throw new IllegalArgumentException("Application Attempt Id not set in the environment");
-			} else {
-				appAttemptID = ConverterUtils.toApplicationAttemptId(applicationmaster_configuration.app_attempt_id);
-			}
+			throw new IllegalArgumentException("Application Attempt Id not set in the environment");
 		} else {
 			ContainerId containerId = ConverterUtils.toContainerId(envs.get(Environment.CONTAINER_ID.name()));
 			appAttemptID = containerId.getApplicationAttemptId();
@@ -101,6 +109,7 @@ public class ApplicationMaster {
 			throw new RuntimeException(Environment.NM_PORT.name() + " not set in the environment");
 		}
 		LOGGER.info("Application master for app" + ", appId=" + appAttemptID.getApplicationId().getId() + ", clustertimestamp=" + appAttemptID.getApplicationId().getClusterTimestamp() + ", attemptId=" + appAttemptID.getAttemptId());
+		return appAttemptID;
 	}
 
 	private void credentials() throws IOException {
@@ -133,21 +142,25 @@ public class ApplicationMaster {
 	 * @throws YarnException
 	 * @throws IOException
 	 */
-	public void run() throws YarnException, IOException {
+	public DefaultEntry<AMRMClientAsync<ContainerRequest>, NMClientAsync> run() throws YarnException, IOException {
 		LOGGER.info("#启动 ApplicationMaster");
-		check_environment();
+		ApplicationAttemptId appAttemptID = check_environment();
 		credentials();
 
 		NMCallbackHandler nmcallbackhandler = new NMCallbackHandler(this);
-		AMRMClientAsync.CallbackHandler allocListener = new RMCallbackHandler(this, applicationmaster_configuration, nmcallbackhandler);
+		RMCallbackHandler allocListener = new RMCallbackHandler(this, applicationmaster_configuration, nmcallbackhandler, appAttemptID);
 
-		amRMClient = AMRMClientAsync.createAMRMClientAsync(1000, allocListener);
+		AMRMClientAsync<ContainerRequest> amRMClient = AMRMClientAsync.createAMRMClientAsync(1000, allocListener);
 		amRMClient.init(conf);
 		amRMClient.start();
 
-		nmClientAsync = new NMClientAsyncImpl(nmcallbackhandler);
+		NMClientAsync nmClientAsync = new NMClientAsyncImpl(nmcallbackhandler);
 		nmClientAsync.init(conf);
 		nmClientAsync.start();
+
+		allocListener.setAmRMClient(amRMClient);
+		allocListener.setNmClientAsync(nmClientAsync);
+		nmcallbackhandler.setNmClientAsync(nmClientAsync);
 
 		RegisterApplicationMasterResponse response = amRMClient.registerApplicationMaster(NetUtils.getHostname(), -1, "");
 
@@ -171,6 +184,8 @@ public class ApplicationMaster {
 			amRMClient.addContainerRequest(setupContainerAskForRM());
 		}
 		numRequestedContainers.set(applicationmaster_configuration.numTotalContainers);
+
+		return new DefaultEntry<AMRMClientAsync<ContainerRequest>, NMClientAsync>(amRMClient, nmClientAsync);
 	}
 
 	protected ContainerRequest setupContainerAskForRM() {
@@ -180,52 +195,32 @@ public class ApplicationMaster {
 		return request;
 	}
 
-	/**
-	 * @param args
-	 *            Command line args
-	 */
-	public static void main(String[] args) {
-		ApplicationMaster appMaster = null;
-		try {
-			appMaster = new ApplicationMaster(new ApplicationMaster_Configuration(args));
-			appMaster.run();
-		} catch (Throwable t) {
-			LOGGER.fatal("#Error running ApplicationMaster", t);
-			LogManager.shutdown();
-			ExitUtil.terminate(1, t);
-		}
-
-		while (appMaster.numCompletedContainers.get() != appMaster.applicationmaster_configuration.numTotalContainers) {
+	private void monitoring(AMRMClientAsync<ContainerRequest> amRMClient, NMClientAsync nmClientAsync) {
+		while (numCompletedContainers.get() != applicationmaster_configuration.numTotalContainers) {
 			try {
-				Thread.sleep(200);
+				Thread.sleep(1000);
 			} catch (InterruptedException ex) {
 				LOGGER.error("", ex);
 			}
 		}
 
-		appMaster.nmClientAsync.stop();
+		nmClientAsync.stop();
 		try {
-			if (appMaster.numFailedContainers.get() == 0) {
-				appMaster.amRMClient.unregisterApplicationMaster(FinalApplicationStatus.SUCCEEDED, null, null);
-				appMaster.amRMClient.stop();
+			if (numFailedContainers.get() == 0) {
+				amRMClient.unregisterApplicationMaster(FinalApplicationStatus.SUCCEEDED, null, null);
+				amRMClient.stop();
 			} else {
-				String appMessage = "#Diagnostics." + ", total=" + appMaster.applicationmaster_configuration.numTotalContainers + ", completed=" + appMaster.numCompletedContainers.get() + ", allocated=" + appMaster.numAllocatedContainers.get() + ", failed=" + appMaster.numFailedContainers.get();
+				String appMessage = "#Diagnostics." + ", total=" + applicationmaster_configuration.numTotalContainers + ", completed=" + numCompletedContainers.get() + ", allocated=" + numAllocatedContainers.get() + ", failed=" + numFailedContainers.get();
 				LOGGER.info("#存在错误任务");
 				LOGGER.info(appMessage);
-				appMaster.amRMClient.unregisterApplicationMaster(FinalApplicationStatus.FAILED, appMessage, null);
-				appMaster.amRMClient.stop();
-				System.exit(2);
+				amRMClient.unregisterApplicationMaster(FinalApplicationStatus.FAILED, appMessage, null);
+				amRMClient.stop();
+				return;
 			}
 		} catch (YarnException | IOException ex) {
 			LOGGER.error("#Failed to unregister application", ex);
 		}
-		appMaster.amRMClient.stop();
-
-		if (appMaster.numFailedContainers.get() == 0) {
-			return;
-		} else {
-			LogManager.shutdown();
-			ExitUtil.terminate(2);
-		}
+		amRMClient.stop();
 	}
+
 }
