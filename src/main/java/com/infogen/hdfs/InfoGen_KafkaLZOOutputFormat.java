@@ -14,30 +14,31 @@ import org.apache.log4j.Logger;
  */
 public class InfoGen_KafkaLZOOutputFormat implements InfoGen_OutputFormat {
 	private static Logger LOGGER = Logger.getLogger(InfoGen_KafkaLZOOutputFormat.class);
-
-	private static class InnerInstance {
-		public static final InfoGen_OutputFormat instance = new InfoGen_KafkaLZOOutputFormat();
-	}
-
-	public static InfoGen_OutputFormat getInstance() {
-		return InnerInstance.instance;
-	}
-
-	private InfoGen_KafkaLZOOutputFormat() {
-	}
-
 	private ConcurrentHashMap<String, InfoGen_LZOOutputStream> map = new ConcurrentHashMap<>(10000);
+	private Long commit_offset;
+	@SuppressWarnings("unused")
+	private String topic;
+	private Integer partition;
 
-	public void write_line(String path, String topic, Integer partition, Long offset, String message) throws IllegalArgumentException, IOException {
+	public InfoGen_KafkaLZOOutputFormat(String topic, Integer partition) {
+		this.topic = topic;
+		this.partition = partition;
+	}
+
+	public void setCommit_offset(Long commit_offset) {
+		this.commit_offset = commit_offset;
+	}
+
+	public void write_line(String path, String message) throws IllegalArgumentException, IOException {
 		Integer num_errors = 0;
 		Integer max_errors = 5;
 
-		String full_path = new StringBuilder(path).append("-").append(partition).append(".").append(offset).toString();
+		String full_path = new StringBuilder(path).append("-").append(partition).append(".").append(commit_offset).toString();
 
 		InfoGen_LZOOutputStream infogen_hdfs_lzooutputstream = map.get(path);
 		for (;;) {// 尾递归优化代码可读性差，用循环代替
 			try {
-				if (infogen_hdfs_lzooutputstream.write_line(message)) {
+				if (infogen_hdfs_lzooutputstream != null && infogen_hdfs_lzooutputstream.write_line(message)) {
 					break;
 				} else {
 					infogen_hdfs_lzooutputstream = new InfoGen_LZOOutputStream(new Path(full_path));
@@ -57,6 +58,10 @@ public class InfoGen_KafkaLZOOutputFormat implements InfoGen_OutputFormat {
 				}
 			}
 		}
+	}
+
+	public Integer number_io() {
+		return map.size();
 	}
 
 	public Boolean close_all() {

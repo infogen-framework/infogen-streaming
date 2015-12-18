@@ -8,8 +8,11 @@ import java.io.IOException;
  * @version 1.0
  */
 public interface InfoGen_OutputFormat {
-	public void write_line(String path, String topic, Integer partition, Long offset, String message) throws IllegalArgumentException, IOException;
+	public void write_line(String path, String message) throws IllegalArgumentException, IOException;
+
+	public Integer number_io();
 
 	public Boolean close_all();
 
+	public void setCommit_offset(Long commit_offset);
 }

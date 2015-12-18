@@ -12,6 +12,7 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.compress.CompressionOutputStream;
 import org.apache.log4j.Logger;
 
 import com.hadoop.compression.lzo.LzoIndex;
@@ -44,13 +45,15 @@ public class InfoGen_LZOOutputStream implements Delayed, InfoGen_OutputStream {
 	private String suffix = ".finish";
 	private DataOutputStream lzoOutputStream;
 
-	public InfoGen_LZOOutputStream() {
-
+	public static void main(String[] args) throws IllegalArgumentException, IOException {
+		InfoGen_LZOOutputStream infogen_lzooutputstream = new InfoGen_LZOOutputStream(new Path("hdfs://spark101:8020/infogen/output/test"));
+		for (int i = 0; i < 100000000; i++) {
+			infogen_lzooutputstream.write_line("dfs://spark101:8020/infogen/output/test");
+		}
+		infogen_lzooutputstream.close();
 	}
 
 	public InfoGen_LZOOutputStream(Path path) throws IOException {
-		configuration.set("io.compression.codecs", "org.apache.hadoop.io.compress.DefaultCodec,org.apache.hadoop.io.compress.GzipCodec,com.hadoop.compression.lzo.LzopCodec");
-		configuration.set("io.compression.codec.lzo.class", "com.hadoop.compression.lzo.LzopCodec");
 		this.path = path;
 		this.path_index = path.suffix(LzoIndex.LZO_INDEX_SUFFIX);
 		this.fs = path.getFileSystem(configuration);
@@ -62,10 +65,10 @@ public class InfoGen_LZOOutputStream implements Delayed, InfoGen_OutputStream {
 		LOGGER.info("#创建流-写入LZO文件并使用索引:" + path.toString());
 		FSDataOutputStream fileOut = fs.create(path, false);
 		FSDataOutputStream indexOut = fs.create(path_index, false);
-
 		LzopCodec codec = new LzopCodec();
 		codec.setConf(configuration);
-		lzoOutputStream = new DataOutputStream(codec.createIndexedOutputStream(fileOut, indexOut));
+		CompressionOutputStream createIndexedOutputStream = codec.createIndexedOutputStream(fileOut, indexOut);
+		lzoOutputStream = new DataOutputStream(createIndexedOutputStream);
 	}
 
 	private final byte[] lock = new byte[0];
@@ -80,19 +83,6 @@ public class InfoGen_LZOOutputStream implements Delayed, InfoGen_OutputStream {
 				return false;
 			}
 		}
-	}
-
-	public Integer size() {
-		synchronized (lock) {
-			if (lzoOutputStream != null) {
-				return lzoOutputStream.size();
-			}
-		}
-		return 0;
-	}
-
-	public Path getPath() {
-		return path;
 	}
 
 	public void close() throws IOException {

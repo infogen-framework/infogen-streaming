@@ -29,7 +29,7 @@ public class Kafka_To_Hdfs_Mapper implements InfoGen_Mapper {
 		dir_stringbuilder.append(localdatetime.getYear()).append("-").append(localdatetime.getMonthValue()).append("-").append(localdatetime.getDayOfMonth()).append("/");
 		dir_stringbuilder.append(localdatetime.getHour()).append("/");
 
-		output.write_line(dir_stringbuilder.toString(), topic, partition, offset, message);
+		output.write_line(dir_stringbuilder.toString(), message);
 	};
 
 }

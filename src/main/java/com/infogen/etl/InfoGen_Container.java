@@ -13,6 +13,7 @@ import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException.Code;
 
 import com.infogen.kafka.InfoGen_Consumer;
+import com.infogen.kafka.InfoGen_Consumer.AUTO_OFFSET_RESET;
 import com.infogen.mapper.InfoGen_Mapper;
 import com.infogen.zookeeper.InfoGen_ZooKeeper;
 
@@ -86,15 +87,14 @@ public class InfoGen_Container {
 		// 关闭 zookeeper
 		infogen_zookeeper.stop_zookeeper();
 
-		// TODO 使用传入的offset还是zookeeper中的offset
 		Long commit_offset = zookeeper_offset;
 		for (;;) {
 			try {
 				LOGGER.info("#执行ETL commit_offset为：" + commit_offset);
 				InfoGen_Mapper infogen_mapper = infogen_mapper_class.newInstance();
-				commit_offset = new InfoGen_Consumer().start(zookeeper, brokers, topic, group, partition, commit_offset, infogen_mapper, "largest");
+				commit_offset = new InfoGen_Consumer().start(zookeeper, brokers, topic, group, partition, commit_offset, infogen_mapper, AUTO_OFFSET_RESET.smallest.name());
 				// consumer错误次数超上限等原因会退出
-				LOGGER.error("#退出执行ETL commit_offset为：" + commit_offset+" (consumer错误次数超上限等原因会退出)");
+				LOGGER.error("#退出执行ETL commit_offset为：" + commit_offset + " (consumer错误次数超上限等原因会退出)");
 			} catch (Exception e) {
 				// zookeeper启动失败,session过期等引起的异常
 				LOGGER.error("#zookeeper启动失败,session过期等引起的异常", e);
@@ -111,15 +111,19 @@ public class InfoGen_Container {
 	private static Options opts = builder_applicationmaster();
 
 	public static void main(String[] args) throws IOException, ParseException, ClassNotFoundException {
+		LOGGER.error("#InfoGen_Container启动");
+
 		CommandLine cliParser = new GnuParser().parse(opts, args);
 
-		// String topic = cliParser.getOptionValue("topic");
-		// String zookeeper = cliParser.getOptionValue("zookeeper");
-		String zookeeper = "172.16.8.97:2181,172.16.8.98:2181,172.16.8.99:2181";
-		String topic = "infogen_topic_tracking";
-		String group = "infogen_etl";
-		String mapper_clazz = "com.infogen.etl.Kafka_To_Hdfs_Mapper";
-		if (topic == null || zookeeper == null || mapper_clazz == null) {
+		String topic = cliParser.getOptionValue("topic");
+		String zookeeper = cliParser.getOptionValue("zookeeper");
+		String group = cliParser.getOptionValue("group");
+		String mapper_clazz = cliParser.getOptionValue("mapper_clazz");
+		// String zookeeper = "172.16.8.97:2181,172.16.8.98:2181,172.16.8.99:2181";
+		// String topic = "infogen_topic_tracking";
+		// String group = "infogen_etl";
+		// String mapper_clazz = "com.infogen.etl.Kafka_To_Hdfs_Mapper";
+		if (topic == null || zookeeper == null || group == null || mapper_clazz == null) {
 			LOGGER.error("参数不能为空");
 			printUsage(opts);
 			System.exit(0);

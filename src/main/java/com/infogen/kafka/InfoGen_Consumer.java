@@ -42,11 +42,10 @@ import kafka.message.MessageAndOffset;
 public class InfoGen_Consumer {
 	private static Logger LOGGER = Logger.getLogger(InfoGen_Consumer.class);
 
-	enum AUTO_OFFSET_RESET {
+	public enum AUTO_OFFSET_RESET {
 		largest, smallest
 	}
 
-	private InfoGen_OutputFormat infogen_kafkalzooutputformat = InfoGen_KafkaLZOOutputFormat.getInstance();
 	private InfoGen_ZooKeeper infogen_zookeeper = new InfoGen_ZooKeeper();
 	private InfoGen_Mapper mapper;
 
@@ -123,38 +122,43 @@ public class InfoGen_Consumer {
 
 		if (offset == null || offset == -1) {// 没有指定offset且zookeeper中也没有保存
 			if (auto_offset_reset.equals(AUTO_OFFSET_RESET.smallest.name())) {
-				LOGGER.warn("#offset不存在-从最早的offset开始获取:" + earliestOffset);
+				LOGGER.warn("#offset不存在-从最早的offset开始获取");
 				offset = earliestOffset;
 			} else {
-				LOGGER.warn("#offset不存在-从最后的offset开始获取:" + latestOffset);
+				LOGGER.warn("#offset不存在-从最后的offset开始获取");
 				offset = latestOffset;
 			}
 		} else if (offset < earliestOffset) {
-			LOGGER.warn("#offset不存在-从最早的offset开始获取:" + earliestOffset);
+			LOGGER.warn("#offset不存在-从最早的offset开始获取");
 			offset = earliestOffset;
 		} else if (offset > latestOffset) {
-			LOGGER.warn("#offset不存在-从最后的offset开始获取:" + latestOffset);
+			LOGGER.warn("#offset不存在-从最后的offset开始获取");
 			offset = latestOffset;
 		} else {
 
 		}
-		LOGGER.info("#offset：" + offset);
+		LOGGER.info("#offset：" + offset + ":earliestOffset-" + earliestOffset + " latestOffset-" + latestOffset);
 
 		Integer num_errors = 0;
 		Integer max_errors = 5;
 
 		Long fetch_size = 0l;
-		Integer fetch_size_ones = 1024 * 1024 * 2;
-		Long max_commit_size = 1024 * 1024 * 64l;
+		Integer fetch_block_size = 1024 * 1024 * 2;
+		Long max_uncommit_size = 1024 * 1024 * 64l;
+
+		Integer max_number_io = 20;
 
 		long millis = Clock.systemUTC().millis();
-		Long max_commit_millis = 1000 * 60 * 10l;
+		Long max_uncommit_millis = 1000 * 60 * 5l;
 		// 最多10分钟或64M执行一次commit
-		LOGGER.info("#开始ETL：单次获取字节数-" + fetch_size_ones + " 最高重试fetch次数-" + max_errors + "  最多未commit消息大小-" + max_commit_size + "  最多未commit时间-" + max_commit_millis);
+		LOGGER.info("#开始ETL：单次获取字节数-" + fetch_block_size + " 最高重试fetch次数-" + max_errors + "  最多未commit消息大小-" + max_uncommit_size + "  最多未commit时间-" + max_uncommit_millis);
+
+		InfoGen_OutputFormat infogen_kafkalzooutputformat = new InfoGen_KafkaLZOOutputFormat(topic, partition);
+		infogen_kafkalzooutputformat.setCommit_offset(commit_offset);
 		try {
 			for (;;) {
 				// 单条消息超过fetch_size_ones 会返回一个空的fetchResponse
-				FetchRequest req = new FetchRequestBuilder().clientId(clientId).addFetch(topic, partition, offset, fetch_size_ones).build();
+				FetchRequest req = new FetchRequestBuilder().clientId(clientId).addFetch(topic, partition, offset, fetch_block_size).build();
 				FetchResponse fetchResponse = consumer.fetch(req);
 
 				if (fetchResponse.hasError()) {
@@ -189,7 +193,7 @@ public class InfoGen_Consumer {
 							payload.get(bytes);
 
 							try {
-								mapper.mapper(topic, partition, messageAndOffset.offset(), new String(bytes, "UTF-8"), infogen_kafkalzooutputformat);
+								mapper.mapper(topic, partition, offset, new String(bytes, "UTF-8"), infogen_kafkalzooutputformat);
 							} catch (UnsupportedEncodingException e) {
 								LOGGER.error("#kafka数据转换String失败:", e);
 								throw e;
@@ -206,36 +210,37 @@ public class InfoGen_Consumer {
 						}
 					}
 					// END 遍历MESSAGE
+				}
 
-					// 更新offset
-					if (fetch_size >= max_commit_size || (Clock.systemUTC().millis() - millis) >= max_commit_millis) {
-						if (!infogen_kafkalzooutputformat.close_all()) {
-							LOGGER.error("#关闭流失败，重试: commit_offset-" + commit_offset + " offset-" + offset);
-							return;
+				// 更新offset
+				if (fetch_size >= max_uncommit_size || (Clock.systemUTC().millis() - millis) >= max_uncommit_millis || infogen_kafkalzooutputformat.number_io() >= max_number_io) {
+					if (!infogen_kafkalzooutputformat.close_all()) {
+						LOGGER.error("#关闭流失败，重试: commit_offset-" + commit_offset + " offset-" + offset);
+						return;
+					} else {
+						LOGGER.error("#关闭流成功 : commit_offset-" + commit_offset + " offset-" + offset);
+					}
+
+					for (;;) {
+						Stat set_data = infogen_zookeeper.set_data(InfoGen_ZooKeeper.offset(topic, group, partition), offset.toString().getBytes(), -1);
+						if (set_data != null) {
+							commit_offset = offset;
+							infogen_kafkalzooutputformat.setCommit_offset(commit_offset);
+							LOGGER.error("#更新offset成功 : commit_offset-" + commit_offset + " offset-" + offset);
+							break;
 						} else {
-							LOGGER.error("#关闭流成功 : commit_offset-" + commit_offset + " offset-" + offset);
-						}
-
-						for (;;) {
-							Stat set_data = infogen_zookeeper.set_data(InfoGen_ZooKeeper.offset(topic, group, partition), offset.toString().getBytes(), -1);
-							if (set_data != null) {
-								commit_offset = offset;
-								LOGGER.error("#更新offset成功 : commit_offset-" + commit_offset + " offset-" + offset);
-								break;
-							} else {
-								try {
-									Thread.sleep(1000);
-								} catch (InterruptedException e) {
-									LOGGER.error("", e);
-								}
+							try {
+								Thread.sleep(1000);
+							} catch (InterruptedException e) {
+								LOGGER.error("", e);
 							}
 						}
-
-						fetch_size = 0l;
-						millis = Clock.systemUTC().millis();
 					}
-					// END 更新offset
+
+					fetch_size = 0l;
+					millis = Clock.systemUTC().millis();
 				}
+				// END 更新offset
 			}
 		} finally {
 			if (consumer != null) {
