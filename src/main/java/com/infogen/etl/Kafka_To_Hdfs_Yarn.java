@@ -24,14 +24,23 @@ import com.infogen.yarn.Job_Configuration;
  * @since 1.0
  * @version 1.0
  */
-public class Start {
-	private static final Log LOGGER = LogFactory.getLog(Start.class);
+public class Kafka_To_Hdfs_Yarn {
+	private static final Log LOGGER = LogFactory.getLog(Kafka_To_Hdfs_Yarn.class);
 
 	// hadoop jar yarn-app-example-0.0.1-SNAPSHOT.jar timo.yarn_app_call_java_daemon.Client
 	// -jar yarn-app-example-0.0.1-SNAPSHOT.jar
 	// -num_containers 2
+	@SuppressWarnings("unchecked")
 	public static void main(String[] args) throws ParseException, ClassNotFoundException {
 		Job_Configuration job_configuration = get_configuration(args);
+		job_configuration.amMemory = 256;
+		job_configuration.containerMemory = 256;
+		job_configuration.numContainers = 3;
+		job_configuration.zookeeper = "172.16.8.97:2181,172.16.8.98:2181,172.16.8.99:2181";
+		job_configuration.topic = "infogen_topic_tracking";
+		job_configuration.group = "infogen_etl";
+		job_configuration.mapper_clazz = (Class<? extends InfoGen_Mapper>) Class.forName("com.infogen.etl.Kafka_To_Hdfs_Mapper");
+		job_configuration.parameters = "hdfs://spark101:8020/infogen/output/";
 		InfoGen_Job infogen_job = new InfoGen_Job(job_configuration, "infogen_etl_kafka_to_hdfs_lzo");
 		infogen_job.submit();
 	}
@@ -40,6 +49,7 @@ public class Start {
 	private static Options opts = builder_client();
 
 	public static Job_Configuration get_configuration(String[] args) throws ParseException, ClassNotFoundException {
+		// "hdfs://spark101:8020/infogen/output/"
 		Job_Configuration job_configuration = new Job_Configuration();
 		LOGGER.info("#初始化Client配置");
 		if (args.length == 0) {
@@ -65,6 +75,7 @@ public class Start {
 		@SuppressWarnings("unchecked")
 		Class<? extends InfoGen_Mapper> mapper_clazz = (Class<? extends InfoGen_Mapper>) Class.forName(cliParser.getOptionValue("mapper_clazz", null));
 		job_configuration.mapper_clazz = mapper_clazz;
+		job_configuration.parameters = cliParser.getOptionValue("parameters", "");
 
 		job_configuration.user = cliParser.getOptionValue("user", System.getProperty("user.name"));
 		job_configuration.amPriority = Integer.parseInt(cliParser.getOptionValue("priority", "0"));
@@ -119,6 +130,7 @@ public class Start {
 		opts.addOption("topic", true, "topic");
 		opts.addOption("group", true, "group");
 		opts.addOption("mapper_clazz", true, "mapper_clazz");
+		opts.addOption("parameters", true, "parameters");
 		return opts;
 	}
 

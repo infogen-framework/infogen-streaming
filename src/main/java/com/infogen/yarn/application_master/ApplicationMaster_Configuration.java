@@ -39,6 +39,7 @@ public class ApplicationMaster_Configuration {
 	public String topic;
 	public String group;
 	public Class<? extends InfoGen_Mapper> mapper_clazz;
+	public String parameters = "";
 
 	private Options opts = builder_applicationmaster();
 
@@ -60,6 +61,7 @@ public class ApplicationMaster_Configuration {
 		topic = cliParser.getOptionValue("topic");
 		group = cliParser.getOptionValue("group");
 		app_name = cliParser.getOptionValue("app_name");
+		parameters = cliParser.getOptionValue("parameters", "");
 		if (zookeeper == null || topic == null || group == null || app_name == null) {
 			printUsage(opts);
 			System.exit(0);
@@ -118,6 +120,7 @@ public class ApplicationMaster_Configuration {
 		opts.addOption("topic", true, "topic");
 		opts.addOption("group", true, "group");
 		opts.addOption("mapper_clazz", true, "mapper_clazz");
+		opts.addOption("parameters", true, "parameters");
 		return opts;
 	}
 

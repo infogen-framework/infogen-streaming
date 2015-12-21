@@ -9,8 +9,11 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.log4j.Logger;
+import org.apache.zookeeper.CreateMode;
+import org.apache.zookeeper.KeeperException.Code;
 import org.apache.zookeeper.data.Stat;
 
+import com.infogen.exception.NoPartition_Exception;
 import com.infogen.hdfs.InfoGen_KafkaLZOOutputFormat;
 import com.infogen.hdfs.InfoGen_OutputFormat;
 import com.infogen.mapper.InfoGen_Mapper;
@@ -47,7 +50,6 @@ public class InfoGen_Consumer {
 	}
 
 	private InfoGen_ZooKeeper infogen_zookeeper = new InfoGen_ZooKeeper();
-	private InfoGen_Mapper mapper;
 
 	private String brokers;
 	private String topic;
@@ -62,40 +64,91 @@ public class InfoGen_Consumer {
 	public InfoGen_Consumer() {
 	}
 
-	public Long start(String zookeeper, String brokers, String topic, String group, Integer partition, Long offset, InfoGen_Mapper mapper, String auto_offset_reset) throws IOException {
+	public Long start(final String zookeeper, final String topic, final String group, final Long commit_offset, final String auto_offset_reset, final Class<? extends InfoGen_Mapper> infogen_mapper_class, final String parameters) throws IOException, InstantiationException, NoPartition_Exception, IllegalAccessException {
 		this.infogen_zookeeper.start_zookeeper(zookeeper, null);
-		this.mapper = mapper;
 
-		this.brokers = brokers;
 		this.topic = topic;
 		this.group = group;
-		this.partition = partition;
-
-		this.offset = offset;
-		this.commit_offset = offset;
+		this.commit_offset = commit_offset;
+		this.offset = commit_offset;
 		if (auto_offset_reset.equals(AUTO_OFFSET_RESET.smallest.name())) {
 			this.auto_offset_reset = auto_offset_reset;
 		}
 
 		try {
-			run();
+			// partition
+			Integer partition = -1;
+			Integer partitions_size = infogen_zookeeper.get_childrens("/brokers/topics/" + topic + "/partitions").size();
+			for (int i = 0; i < partitions_size; i++) {
+				infogen_zookeeper.create_notexists(InfoGen_ZooKeeper.offset(topic, group, i), CreateMode.PERSISTENT);
+				String create = infogen_zookeeper.create(InfoGen_ZooKeeper.partition(topic, group, i), null, CreateMode.EPHEMERAL);
+				if (create == null || create.equals(Code.NODEEXISTS.name())) {
+					LOGGER.info("#创建partition失败:" + i);
+				} else {
+					LOGGER.info("#获取partition成功:" + i);
+					partition = i;
+					break;
+				}
+			}
+			if (partition == -1) {
+				LOGGER.info("#创建partition失败  退出ETL");
+				throw new NoPartition_Exception();
+			} else {
+				this.partition = partition;
+			}
+			LOGGER.info("#partition为：" + partition);
+
+			// offset
+			if (commit_offset == null) {
+				String get_offset = infogen_zookeeper.get_data(InfoGen_ZooKeeper.offset(topic, group, partition));
+				if (get_offset != null) {
+					this.commit_offset = Long.valueOf(get_offset);
+					this.offset = Long.valueOf(get_offset);
+					LOGGER.info("#使用zookeeper 中 offset为:" + commit_offset);
+				}
+			}
+			LOGGER.info("#commit_offset为：" + commit_offset);
+
+			// brokers
+			StringBuilder brokers_sb = new StringBuilder();
+			for (String id : infogen_zookeeper.get_childrens("/brokers/ids")) {
+				for (String kv : infogen_zookeeper.get_data("/brokers/ids/" + id).replace("{", "").replace("}", "").replace("\"", "").split(",")) {
+					String key = kv.split(":")[0];
+					String value = kv.split(":")[1];
+					if (key.equals("host")) {
+						brokers_sb.append(value).append(":");
+					} else if (key.equals("port")) {
+						brokers_sb.append(value).append(",");
+					} else {
+					}
+				}
+			}
+			this.brokers = brokers_sb.substring(0, brokers_sb.length() - 1);
+			LOGGER.info("#broker为：" + brokers);
+
+			// InfoGen_Mapper
+			InfoGen_Mapper mapper = infogen_mapper_class.newInstance();
+			mapper.config(topic, partition, parameters);
+
+			// InfoGen_OutputFormat
+			InfoGen_OutputFormat infogen_kafkalzooutputformat = new InfoGen_KafkaLZOOutputFormat(topic, partition);
+
+			run(mapper, infogen_kafkalzooutputformat);
 			LOGGER.error("#ETL中断，重试 : commit_offset-" + commit_offset + " offset-" + offset);
-			return commit_offset;
-		} catch (Exception e) {
-			LOGGER.error("#ETL未知异常中断，重试 : commit_offset-" + commit_offset + " offset-" + offset, e);
 			return commit_offset;
 		} finally {
 			infogen_zookeeper.stop_zookeeper();
 		}
 	}
 
-	private void run() throws IOException {
+	private void run(final InfoGen_Mapper mapper, final InfoGen_OutputFormat infogen_kafkalzooutputformat) throws IOException {
 		LOGGER.info("#获取指定Topic partition的元数据：topic-" + topic + " partition-" + partition);
 		PartitionMetadata partition_metadata = findPartitionMetadata();
 		if (partition_metadata == null) {
 			LOGGER.error("Can't find metadata for Topic and Partition. Exiting");
 			return;
 		}
+
 		if (partition_metadata.leader() == null) {
 			LOGGER.error("Can't find Leader for Topic and Partition. Exiting");
 			return;
@@ -114,13 +167,12 @@ public class InfoGen_Consumer {
 		if (earliestOffset == null) {
 			LOGGER.error("Can't find earliestOffset. Exiting");
 			return;
-		}
-		if (latestOffset == null) {
+		} else if (latestOffset == null) {
 			LOGGER.error("Can't find latestOffset. Exiting");
 			return;
 		}
 
-		if (offset == null || offset == -1) {// 没有指定offset且zookeeper中也没有保存
+		if (offset == null || offset < 0) {// 没有指定offset且zookeeper中也没有保存
 			if (auto_offset_reset.equals(AUTO_OFFSET_RESET.smallest.name())) {
 				LOGGER.warn("#offset不存在-从最早的offset开始获取");
 				offset = earliestOffset;
@@ -134,8 +186,6 @@ public class InfoGen_Consumer {
 		} else if (offset > latestOffset) {
 			LOGGER.warn("#offset不存在-从最后的offset开始获取");
 			offset = latestOffset;
-		} else {
-
 		}
 		LOGGER.info("#offset：" + offset + ":earliestOffset-" + earliestOffset + " latestOffset-" + latestOffset);
 
@@ -153,7 +203,6 @@ public class InfoGen_Consumer {
 		// 最多10分钟或64M执行一次commit
 		LOGGER.info("#开始ETL：单次获取字节数-" + fetch_block_size + " 最高重试fetch次数-" + max_errors + "  最多未commit消息大小-" + max_uncommit_size + "  最多未commit时间-" + max_uncommit_millis);
 
-		InfoGen_OutputFormat infogen_kafkalzooutputformat = new InfoGen_KafkaLZOOutputFormat(topic, partition);
 		infogen_kafkalzooutputformat.setCommit_offset(commit_offset);
 		try {
 			for (;;) {
@@ -193,15 +242,15 @@ public class InfoGen_Consumer {
 							payload.get(bytes);
 
 							try {
-								mapper.mapper(topic, partition, offset, new String(bytes, "UTF-8"), infogen_kafkalzooutputformat);
+								mapper.mapper(offset, new String(bytes, "UTF-8"), infogen_kafkalzooutputformat);
 							} catch (UnsupportedEncodingException e) {
 								LOGGER.error("#kafka数据转换String失败:", e);
 								throw e;
-							} catch (IllegalArgumentException e) {
-								LOGGER.error("#获取hdfs Path失败:", e);
-								throw e;
 							} catch (IOException e) {
 								LOGGER.error("#创建hdfs流失败:", e);
+								throw e;
+							} catch (IllegalArgumentException e) {
+								LOGGER.error("#获取hdfs Path失败:", e);
 								throw e;
 							}
 
@@ -218,7 +267,7 @@ public class InfoGen_Consumer {
 						LOGGER.error("#关闭流失败，重试: commit_offset-" + commit_offset + " offset-" + offset);
 						return;
 					} else {
-						LOGGER.error("#关闭流成功 : commit_offset-" + commit_offset + " offset-" + offset);
+						LOGGER.info("#关闭流成功 : commit_offset-" + commit_offset + " offset-" + offset);
 					}
 
 					for (;;) {
@@ -226,7 +275,7 @@ public class InfoGen_Consumer {
 						if (set_data != null) {
 							commit_offset = offset;
 							infogen_kafkalzooutputformat.setCommit_offset(commit_offset);
-							LOGGER.error("#更新offset成功 : commit_offset-" + commit_offset + " offset-" + offset);
+							LOGGER.info("#更新offset成功 : commit_offset-" + commit_offset + " offset-" + offset);
 							break;
 						} else {
 							try {

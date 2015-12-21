@@ -57,9 +57,18 @@ public class InfoGen_Job {
 	public InfoGen_Job(Job_Configuration job_configuration, String app_name) {
 		this.job_configuration = job_configuration;
 		this.app_name = app_name == null ? "infogen" : app_name;
+
 	}
 
 	public void submit() {
+		if (job_configuration.zookeeper == null || job_configuration.topic == null || job_configuration.group == null) {
+			LOGGER.error("zookeeper,topic,group不能为空");
+			return;
+		}
+		if (job_configuration.parameters == null) {
+			job_configuration.parameters = "";
+		}
+
 		DefaultEntry<ApplicationId, YarnClient> entry = null;
 		try {
 			entry = run();
@@ -72,7 +81,7 @@ public class InfoGen_Job {
 	}
 
 	public DefaultEntry<ApplicationId, YarnClient> run() throws IOException, YarnException {
-		LOGGER.info("#启动 Client");
+		LOGGER.info("#启动 Client 可以通过 yarn application -kill application_xxx结束任务");
 		YarnClient yarnClient = YarnClient.createYarnClient();
 		yarnClient.init(conf);
 		yarnClient.start();
@@ -201,6 +210,7 @@ public class InfoGen_Job {
 		return environment;
 	}
 
+	@SuppressWarnings("restriction")
 	private List<String> commands() {
 		// Set the necessary command to execute the application master
 		Vector<CharSequence> vargs = new Vector<CharSequence>(30);
@@ -217,7 +227,7 @@ public class InfoGen_Job {
 		vargs.add("--topic " + String.valueOf(job_configuration.topic));
 		vargs.add("--group " + String.valueOf(job_configuration.group));
 		vargs.add("--mapper_clazz " + String.valueOf(job_configuration.mapper_clazz.getName()));
-
+		vargs.add("--parameters " + new sun.misc.BASE64Encoder().encode(job_configuration.parameters.getBytes()));
 		if (job_configuration.debugFlag) {
 			vargs.add("--debug");
 		}
@@ -238,7 +248,7 @@ public class InfoGen_Job {
 	private void monitoring(ApplicationId appId, YarnClient yarnClient) {
 		while (true) {
 			try {
-				Thread.sleep(3 * 1000);
+				Thread.sleep(10 * 1000);
 			} catch (InterruptedException e) {
 				LOGGER.debug("#Thread sleep in monitoring loop interrupted", e);
 			}

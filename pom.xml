@@ -3,11 +3,11 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>com.infogen</groupId>
-	<artifactId>infogen_etl</artifactId>
+	<artifactId>infogen_streaming</artifactId>
 	<version>V1.0.00R150430</version>
 	<packaging>jar</packaging>
 
-	<name>infogen_etl</name>
+	<name>infogen_streaming</name>
 	<url>https://github.com/larrylgq/infogen_analysis</url>
 	<description>提供最基础的工具类</description>
 	<licenses>
@@ -38,6 +38,7 @@
 			<groupId>org.apache.hadoop</groupId>
 			<artifactId>hadoop-client</artifactId>
 			<version>2.7.1</version>
+			<scope>provided</scope>
 		</dependency>
 		<!-- kafka -->
 		<dependency>
@@ -47,18 +48,23 @@
 			<exclusions>
 				<exclusion>
 					<groupId>org.slf4j</groupId>
-					<artifactId>slf4j-api</artifactId>
+					<artifactId>slf4j-log4j12</artifactId>
 				</exclusion>
 				<exclusion>
 					<groupId>org.slf4j</groupId>
-					<artifactId>slf4j-log4j12</artifactId>
+					<artifactId>slf4j-api</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.apache.zookeeper</groupId>
+					<artifactId>zookeeper</artifactId>
 				</exclusion>
 			</exclusions>
+			<scope>compile</scope>
 		</dependency>
 	</dependencies>
 
 	<build>
-		<finalName>infogen_etl</finalName>
+		<finalName>infogen_streaming</finalName>
 		<defaultGoal>compile</defaultGoal>
 		<sourceDirectory>src/main/java</sourceDirectory>
 		<plugins>
@@ -74,30 +80,31 @@
 					</compilerArguments>
 				</configuration>
 			</plugin>
+
 			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-jar-plugin</artifactId>
+				<artifactId> maven-assembly-plugin </artifactId>
 				<version>2.6</version>
 				<configuration>
+					<descriptorRefs>
+						<descriptorRef>jar-with-dependencies</descriptorRef>
+					</descriptorRefs>
 					<archive>
 						<manifest>
-							<!-- 往Manifest.MF文件中添加ClassPath -->
-							<addClasspath>true</addClasspath>
-							<!-- classpath前缀 -->
-							<classpathPrefix>lib/</classpathPrefix>
-							<!-- 主程序入口 -->
-							<mainClass>com.infogen.etl.Start</mainClass>
+							<mainClass>com.infogen.etl.Kafka_To_Hdfs_Yarn</mainClass>
 						</manifest>
 					</archive>
-					<excludes>
-						<exclude>webapp/**</exclude>
-						<exclude>*.properties</exclude>
-						<exclude>*.xml</exclude>
-						<exclude>*.ini</exclude>
-						<exclude>environment.*</exclude>
-					</excludes>
 				</configuration>
+				<executions>
+					<execution>
+						<id>make-assembly</id>
+						<phase>package</phase>
+						<goals>
+							<goal>single</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
+
 			<plugin>
 				<groupId>org.codehaus.mojo</groupId>
 				<artifactId>findbugs-maven-plugin</artifactId>

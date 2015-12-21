@@ -59,8 +59,8 @@ public class InfoGen_LZOOutputStream implements Delayed, InfoGen_OutputStream {
 		this.fs = path.getFileSystem(configuration);
 
 		fs.delete(path, true);
-		fs.delete(path.suffix(LzoIndex.LZO_INDEX_SUFFIX), true);
 		fs.delete(path.suffix(suffix), true);
+		fs.delete(path.suffix(LzoIndex.LZO_INDEX_SUFFIX), true);
 
 		LOGGER.info("#创建流-写入LZO文件并使用索引:" + path.toString());
 		FSDataOutputStream fileOut = fs.create(path, false);
