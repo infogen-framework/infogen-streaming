@@ -3,6 +3,8 @@ package com.infogen.yarn;
 import com.infogen.mapper.InfoGen_Mapper;
 
 /**
+ * 使用Yarn模式提交所需要配置的参数，YarnClient提交时传递给ApplicationMaster
+ * 
  * @author larry/larrylv@outlook.com/创建时间 2015年12月3日 上午11:08:05
  * @since 1.0
  * @version 1.0

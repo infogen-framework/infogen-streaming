@@ -1,4 +1,4 @@
-package com.infogen.yarn;
+package com.infogen.util;
 
 import java.util.Map.Entry;
 

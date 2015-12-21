@@ -18,6 +18,8 @@ import org.apache.hadoop.util.Shell;
 import com.infogen.mapper.InfoGen_Mapper;
 
 /**
+ * YarnClient提交的配置，启动Container的时候传递给Container
+ * 
  * @author larry/larrylv@outlook.com/创建时间 2015年12月3日 下午3:58:44
  * @since 1.0
  * @version 1.0
@@ -31,7 +33,7 @@ public class ApplicationMaster_Configuration {
 	// VirtualCores to request for the container on which the command will run
 	public Integer containerVirtualCores = 1;
 	// Priority of the request
-	public Integer requestPriority;
+	public Integer containerPriority;
 
 	/////////////////////////////////////////////////////////////////////////////////////
 	public String app_name = "infogen";
@@ -79,7 +81,7 @@ public class ApplicationMaster_Configuration {
 		if (numTotalContainers == 0) {
 			throw new IllegalArgumentException("#containers 不能小于1");
 		}
-		requestPriority = Integer.parseInt(cliParser.getOptionValue("priority", "0"));
+		containerPriority = Integer.parseInt(cliParser.getOptionValue("priority", "0"));
 	}
 
 	private void dumpOutDebugInfo() {
@@ -107,7 +109,6 @@ public class ApplicationMaster_Configuration {
 	public Options builder_applicationmaster() {
 		Options opts = new Options();
 		opts.addOption("user", true, "启动用户");
-		opts.addOption("app_attempt_id", true, "App Attempt ID. Not to be used unless for testing purposes");
 		opts.addOption("container_memory", true, "Amount of memory in MB to be requested to run the command");
 		opts.addOption("container_vcores", true, "Amount of virtual cores to be requested to run the command");
 		opts.addOption("num_containers", true, "No. of containers on which the command needs to be executed");

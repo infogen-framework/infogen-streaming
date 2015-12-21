@@ -1,4 +1,4 @@
-package com.infogen.yarn;
+package com.infogen.util;
 
 import java.io.FileInputStream;
 import java.io.InputStream;

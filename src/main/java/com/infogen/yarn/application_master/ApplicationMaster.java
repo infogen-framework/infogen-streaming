@@ -37,8 +37,15 @@ import org.apache.hadoop.yarn.security.AMRMTokenIdentifier;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.log4j.LogManager;
 
-import com.infogen.yarn.DefaultEntry;
+import com.infogen.util.DefaultEntry;
 
+/**
+ * ApplicationMaster用于启动和维护Container
+ * 
+ * @author larry/larrylv@outlook.com/创建时间 2015年12月21日 下午6:35:33
+ * @since 1.0
+ * @version 1.0
+ */
 public class ApplicationMaster {
 	private static final Log LOGGER = LogFactory.getLog(ApplicationMaster.class);
 
@@ -189,7 +196,7 @@ public class ApplicationMaster {
 	}
 
 	protected ContainerRequest setupContainerAskForRM() {
-		Priority pri = Priority.newInstance(applicationmaster_configuration.requestPriority);
+		Priority pri = Priority.newInstance(applicationmaster_configuration.containerPriority);
 		Resource capability = Resource.newInstance(applicationmaster_configuration.containerMemory, applicationmaster_configuration.containerVirtualCores);
 		ContainerRequest request = new ContainerRequest(capability, null, null, pri);
 		return request;

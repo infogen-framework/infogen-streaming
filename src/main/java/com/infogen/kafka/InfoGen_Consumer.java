@@ -64,13 +64,13 @@ public class InfoGen_Consumer {
 	public InfoGen_Consumer() {
 	}
 
-	public Long start(final String zookeeper, final String topic, final String group, final Long commit_offset, final String auto_offset_reset, final Class<? extends InfoGen_Mapper> infogen_mapper_class, final String parameters) throws IOException, InstantiationException, NoPartition_Exception, IllegalAccessException {
+	public Long start(final String zookeeper, final String topic, final String group, final Long start_offset, final String auto_offset_reset, final Class<? extends InfoGen_Mapper> infogen_mapper_class, final String parameters) throws IOException, InstantiationException, NoPartition_Exception, IllegalAccessException {
 		this.infogen_zookeeper.start_zookeeper(zookeeper, null);
 
 		this.topic = topic;
 		this.group = group;
-		this.commit_offset = commit_offset;
-		this.offset = commit_offset;
+		this.offset = start_offset;
+		this.commit_offset = start_offset;
 		if (auto_offset_reset.equals(AUTO_OFFSET_RESET.smallest.name())) {
 			this.auto_offset_reset = auto_offset_reset;
 		}
@@ -99,11 +99,12 @@ public class InfoGen_Consumer {
 			LOGGER.info("#partition为：" + partition);
 
 			// offset
-			if (commit_offset == null) {
+			if (start_offset == null || start_offset < 0) {
 				String get_offset = infogen_zookeeper.get_data(InfoGen_ZooKeeper.offset(topic, group, partition));
 				if (get_offset != null) {
-					this.commit_offset = Long.valueOf(get_offset);
-					this.offset = Long.valueOf(get_offset);
+					Long save_offset = Long.valueOf(get_offset);
+					this.offset = save_offset;
+					this.commit_offset = save_offset;
 					LOGGER.info("#使用zookeeper 中 offset为:" + commit_offset);
 				}
 			}
@@ -132,9 +133,11 @@ public class InfoGen_Consumer {
 
 			// InfoGen_OutputFormat
 			InfoGen_OutputFormat infogen_kafkalzooutputformat = new InfoGen_KafkaLZOOutputFormat(topic, partition);
+			infogen_kafkalzooutputformat.setCommit_offset(commit_offset);
 
+			LOGGER.info("#执行ETL offset为：" + start_offset);
 			run(mapper, infogen_kafkalzooutputformat);
-			LOGGER.error("#ETL中断，重试 : commit_offset-" + commit_offset + " offset-" + offset);
+			LOGGER.error("#ETL中断 : commit_offset-" + commit_offset + " offset-" + offset);
 			return commit_offset;
 		} finally {
 			infogen_zookeeper.stop_zookeeper();
@@ -203,7 +206,6 @@ public class InfoGen_Consumer {
 		// 最多10分钟或64M执行一次commit
 		LOGGER.info("#开始ETL：单次获取字节数-" + fetch_block_size + " 最高重试fetch次数-" + max_errors + "  最多未commit消息大小-" + max_uncommit_size + "  最多未commit时间-" + max_uncommit_millis);
 
-		infogen_kafkalzooutputformat.setCommit_offset(commit_offset);
 		try {
 			for (;;) {
 				// 单条消息超过fetch_size_ones 会返回一个空的fetchResponse
@@ -213,7 +215,7 @@ public class InfoGen_Consumer {
 				if (fetchResponse.hasError()) {
 					num_errors++;
 
-					short code = fetchResponse.errorCode(topic, partition);
+					Short code = fetchResponse.errorCode(topic, partition);
 					LOGGER.error("#获取数据失败 from the Broker:" + leaderBroker + " Reason: " + code);
 					if (code == ErrorMapping.OffsetOutOfRangeCode()) {
 						LOGGER.error("#OffsetOutOfRangeCode:" + offset);

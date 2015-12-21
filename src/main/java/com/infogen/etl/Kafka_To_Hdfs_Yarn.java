@@ -87,8 +87,8 @@ public class Kafka_To_Hdfs_Yarn {
 		}
 		job_configuration.attemptFailuresValidityInterval = Long.parseLong(cliParser.getOptionValue("attempt_failures_validity_interval", "-1"));
 
-		job_configuration.amMemory = Integer.parseInt(cliParser.getOptionValue("master_memory", "512"));
-		job_configuration.amVCores = Integer.parseInt(cliParser.getOptionValue("master_vcores", "1"));
+		job_configuration.amMemory = Integer.parseInt(cliParser.getOptionValue("am_memory", "512"));
+		job_configuration.amVCores = Integer.parseInt(cliParser.getOptionValue("am_vcores", "1"));
 		job_configuration.containerMemory = Integer.parseInt(cliParser.getOptionValue("container_memory", "512"));
 		job_configuration.containerVirtualCores = Integer.parseInt(cliParser.getOptionValue("container_vcores", "1"));
 		job_configuration.numContainers = Integer.parseInt(cliParser.getOptionValue("num_containers", "1"));
@@ -118,8 +118,8 @@ public class Kafka_To_Hdfs_Yarn {
 		opts.addOption("keep_containers_across_application_attempts", false, "Flag to indicate whether to keep containers across application attempts. If the flag is true, running containers will not be killed when" + " application attempt fails and these containers will be retrieved by" + " the new application attempt ");
 		opts.addOption("attempt_failures_validity_interval", true, "when attempt_failures_validity_interval in milliseconds is set to > 0," + "the failure number will not take failures which happen out of " + "the validityInterval into failure count. " + "If failure count reaches to maxAppAttempts, " + "the application will be failed.");
 		opts.addOption("node_label_expression", true, "Node label expression to determine the nodes" + " where all the containers of this application" + " will be allocated, \"\" means containers" + " can be allocated anywhere, if you don't specify the option," + " default node_label_expression of queue will be used.");
-		opts.addOption("master_memory", true, "Amount of memory in MB to be requested to run the application master");
-		opts.addOption("master_vcores", true, "Amount of virtual cores to be requested to run the application master");
+		opts.addOption("am_memory", true, "Amount of memory in MB to be requested to run the application master");
+		opts.addOption("am_vcores", true, "Amount of virtual cores to be requested to run the application master");
 		opts.addOption("container_memory", true, "Amount of memory in MB to be requested to run the command");
 		opts.addOption("container_vcores", true, "Amount of virtual cores to be requested to run the command");
 		opts.addOption("num_containers", true, "No. of containers on which the command needs to be executed");

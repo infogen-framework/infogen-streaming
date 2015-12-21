@@ -3,16 +3,18 @@ package com.infogen.etl;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import com.infogen.kafka.InfoGen_Container;
 import com.infogen.mapper.InfoGen_Mapper;
+import com.infogen.yarn.InfoGen_Container;
 
 /**
+ * 独立部署示例程序,可以直接传入参数启动
+ * 
  * @author larry/larrylv@outlook.com/创建时间 2015年12月21日 下午1:12:07
  * @since 1.0
  * @version 1.0
  */
 public class Kafka_To_Hdfs_Standalone {
-	private static final Log LOGGER = LogFactory.getLog(InfoGen_Container.class);
+	private static final Log LOGGER = LogFactory.getLog(Kafka_To_Hdfs_Standalone.class);
 	///////////////////////////////////////////////////////////////////////////////
 
 	@SuppressWarnings("unchecked")

@@ -1,4 +1,3 @@
-
 package com.infogen.yarn;
 
 import java.io.IOException;
@@ -47,6 +46,14 @@ import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.log4j.LogManager;
 
+import com.infogen.util.DefaultEntry;
+
+/**
+ * YarnClient提交任务到ApplicationMaster，并监控运行进度
+ * @author larry/larrylv@outlook.com/创建时间 2015年12月21日 下午6:33:26
+ * @since 1.0
+ * @version 1.0
+ */
 public class InfoGen_Job {
 	private static final Log LOGGER = LogFactory.getLog(InfoGen_Job.class);
 	private Job_Configuration job_configuration;
