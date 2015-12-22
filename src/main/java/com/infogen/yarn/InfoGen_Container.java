@@ -33,7 +33,7 @@ public class InfoGen_Container {
 	}
 
 	public void run(final String zookeeper, final String topic, final String group, final Class<? extends InfoGen_Mapper> infogen_mapper_class, final String parameters) throws ClassNotFoundException, IOException {
-		if (topic == null || zookeeper == null || group == null || infogen_mapper_class == null) {
+		if (topic == null || zookeeper == null || group == null || infogen_mapper_class == null || parameters == null || parameters.trim().isEmpty()) {
 			LOGGER.error("参数不能为空");
 			printUsage(opts);
 			return;
