@@ -46,9 +46,6 @@ public class Kafka_To_Hdfs_Yarn {
 			printUsage();
 			return;
 		}
-		if (job_configuration.parameters == null) {
-			job_configuration.parameters = "";
-		}
 		InfoGen_Job infogen_job = new InfoGen_Job(job_configuration, "infogen_etl_kafka_to_hdfs_lzo");
 		infogen_job.submit();
 	}

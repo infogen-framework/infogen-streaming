@@ -197,7 +197,9 @@ public class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
 			vargs.add("--topic " + String.valueOf(applicationmaster_configuration.topic));
 			vargs.add("--group " + String.valueOf(applicationmaster_configuration.group));
 			vargs.add("--mapper_clazz " + String.valueOf(applicationmaster_configuration.mapper_clazz.getName()));
-			vargs.add("--parameters " + String.valueOf(applicationmaster_configuration.parameters));
+			if (applicationmaster_configuration.parameters != null && !applicationmaster_configuration.parameters.isEmpty()) {
+				vargs.add("--parameters " + String.valueOf(applicationmaster_configuration.parameters));
+			}
 			vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stdout");
 			vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stderr");
 			// Get final commmand

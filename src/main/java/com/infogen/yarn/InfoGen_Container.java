@@ -91,7 +91,7 @@ public class InfoGen_Container {
 		String group = cliParser.getOptionValue("group");
 		String mapper_clazz = cliParser.getOptionValue("mapper_clazz");
 		@SuppressWarnings("restriction")
-		String parameters = new sun.misc.BASE64Decoder().decodeBuffer(cliParser.getOptionValue("parameters", "")).toString();
+		String parameters = new String(new sun.misc.BASE64Decoder().decodeBuffer(cliParser.getOptionValue("parameters", "")));
 
 		InfoGen_Container infogen_container = new InfoGen_Container();
 		infogen_container.run(zookeeper, topic, group, (Class<? extends InfoGen_Mapper>) Class.forName(mapper_clazz), parameters);

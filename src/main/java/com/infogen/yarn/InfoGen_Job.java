@@ -50,6 +50,7 @@ import com.infogen.util.DefaultEntry;
 
 /**
  * YarnClient提交任务到ApplicationMaster，并监控运行进度
+ * 
  * @author larry/larrylv@outlook.com/创建时间 2015年12月21日 下午6:33:26
  * @since 1.0
  * @version 1.0
@@ -226,7 +227,9 @@ public class InfoGen_Job {
 		vargs.add("--topic " + String.valueOf(job_configuration.topic));
 		vargs.add("--group " + String.valueOf(job_configuration.group));
 		vargs.add("--mapper_clazz " + String.valueOf(job_configuration.mapper_clazz.getName()));
-		vargs.add("--parameters " + new sun.misc.BASE64Encoder().encode(job_configuration.parameters.getBytes()));
+		if (job_configuration.parameters != null && !job_configuration.parameters.isEmpty()) {
+			vargs.add("--parameters " + new sun.misc.BASE64Encoder().encode(job_configuration.parameters.getBytes()));
+		}
 		if (job_configuration.debugFlag) {
 			vargs.add("--debug");
 		}
