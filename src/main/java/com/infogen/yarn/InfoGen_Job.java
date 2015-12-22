@@ -68,14 +68,6 @@ public class InfoGen_Job {
 	}
 
 	public void submit() {
-		if (job_configuration.zookeeper == null || job_configuration.topic == null || job_configuration.group == null) {
-			LOGGER.error("zookeeper,topic,group不能为空");
-			return;
-		}
-		if (job_configuration.parameters == null) {
-			job_configuration.parameters = "";
-		}
-
 		DefaultEntry<ApplicationId, YarnClient> entry = null;
 		try {
 			entry = run();

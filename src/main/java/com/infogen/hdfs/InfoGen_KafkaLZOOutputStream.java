@@ -19,12 +19,14 @@ import com.hadoop.compression.lzo.LzoIndex;
 import com.hadoop.compression.lzo.LzopCodec;
 
 /**
+ * 针对kafka实现使用lzo压缩的OutputStream
+ * 
  * @author larry/larrylv@outlook.com/创建时间 2015年11月30日 下午4:43:18
  * @since 1.0
  * @version 1.0
  */
-public class InfoGen_LZOOutputStream implements Delayed, InfoGen_OutputStream {
-	private static Logger LOGGER = Logger.getLogger(InfoGen_LZOOutputStream.class);
+public class InfoGen_KafkaLZOOutputStream implements Delayed, InfoGen_OutputStream {
+	private static Logger LOGGER = Logger.getLogger(InfoGen_KafkaLZOOutputStream.class);
 	public static final String utf8 = "UTF-8";
 	public static final byte[] newline;
 	public static final byte[] keyValueSeparator;
@@ -46,14 +48,14 @@ public class InfoGen_LZOOutputStream implements Delayed, InfoGen_OutputStream {
 	private DataOutputStream lzoOutputStream;
 
 	public static void main(String[] args) throws IllegalArgumentException, IOException {
-		InfoGen_LZOOutputStream infogen_lzooutputstream = new InfoGen_LZOOutputStream(new Path("hdfs://spark101:8020/infogen/output/test"));
+		InfoGen_KafkaLZOOutputStream infogen_lzooutputstream = new InfoGen_KafkaLZOOutputStream(new Path("hdfs://spark101:8020/infogen/output/test"));
 		for (int i = 0; i < 100000000; i++) {
 			infogen_lzooutputstream.write_line("dfs://spark101:8020/infogen/output/test");
 		}
 		infogen_lzooutputstream.close();
 	}
 
-	public InfoGen_LZOOutputStream(Path path) throws IOException {
+	public InfoGen_KafkaLZOOutputStream(Path path) throws IOException {
 		this.path = path;
 		this.path_index = path.suffix(LzoIndex.LZO_INDEX_SUFFIX);
 		this.fs = path.getFileSystem(configuration);
@@ -76,8 +78,8 @@ public class InfoGen_LZOOutputStream implements Delayed, InfoGen_OutputStream {
 	public Boolean write_line(String message) throws IOException {
 		synchronized (lock) {
 			if (lzoOutputStream != null) {
-				lzoOutputStream.write(InfoGen_LZOOutputStream.newline);
-				lzoOutputStream.write(message.getBytes(InfoGen_LZOOutputStream.utf8));
+				lzoOutputStream.write(InfoGen_KafkaLZOOutputStream.newline);
+				lzoOutputStream.write(message.getBytes(InfoGen_KafkaLZOOutputStream.utf8));
 				return true;
 			} else {
 				return false;
@@ -111,9 +113,9 @@ public class InfoGen_LZOOutputStream implements Delayed, InfoGen_OutputStream {
 
 	@Override
 	public int compareTo(Delayed o) {
-		if (this.delay_millis < ((InfoGen_LZOOutputStream) o).delay_millis) {
+		if (this.delay_millis < ((InfoGen_KafkaLZOOutputStream) o).delay_millis) {
 			return -1;
-		} else if (this.delay_millis > ((InfoGen_LZOOutputStream) o).delay_millis) {
+		} else if (this.delay_millis > ((InfoGen_KafkaLZOOutputStream) o).delay_millis) {
 			return 1;
 		} else {
 			return 0;

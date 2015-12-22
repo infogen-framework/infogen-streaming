@@ -35,6 +35,8 @@ import org.apache.hadoop.yarn.util.ConverterUtils;
 import com.infogen.yarn.Constants;
 
 /**
+ * resource manager 的回调处理
+ * 
  * @author larry/larrylv@outlook.com/创建时间 2015年12月3日 下午4:56:10
  * @since 1.0
  * @version 1.0

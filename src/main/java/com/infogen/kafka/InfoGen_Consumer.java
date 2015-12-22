@@ -132,7 +132,7 @@ public class InfoGen_Consumer {
 			mapper.config(topic, partition, parameters);
 
 			// InfoGen_OutputFormat
-			InfoGen_OutputFormat infogen_kafkalzooutputformat = new InfoGen_KafkaLZOOutputFormat(topic, partition);
+			InfoGen_OutputFormat infogen_kafkalzooutputformat = new InfoGen_KafkaLZOOutputFormat(partition);
 			infogen_kafkalzooutputformat.setCommit_offset(commit_offset);
 
 			LOGGER.info("#执行ETL offset为：" + start_offset);

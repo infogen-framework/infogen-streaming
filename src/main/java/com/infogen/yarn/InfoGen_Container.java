@@ -80,7 +80,7 @@ public class InfoGen_Container {
 		}
 	}
 
-	///////////////////////////////////////////////////////////////////////////////
+	// Command line options
 	private static Options opts = builder_applicationmaster();
 
 	@SuppressWarnings("unchecked")

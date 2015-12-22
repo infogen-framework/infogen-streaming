@@ -20,6 +20,8 @@ import com.infogen.yarn.InfoGen_Job;
 import com.infogen.yarn.Job_Configuration;
 
 /**
+ * Yarn部署示例程序
+ * 
  * @author larry/larrylv@outlook.com/创建时间 2015年12月15日 下午2:13:55
  * @since 1.0
  * @version 1.0
@@ -27,20 +29,26 @@ import com.infogen.yarn.Job_Configuration;
 public class Kafka_To_Hdfs_Yarn {
 	private static final Log LOGGER = LogFactory.getLog(Kafka_To_Hdfs_Yarn.class);
 
-	// hadoop jar yarn-app-example-0.0.1-SNAPSHOT.jar timo.yarn_app_call_java_daemon.Client
-	// -jar yarn-app-example-0.0.1-SNAPSHOT.jar
-	// -num_containers 2
-	@SuppressWarnings("unchecked")
 	public static void main(String[] args) throws ParseException, ClassNotFoundException {
 		Job_Configuration job_configuration = get_configuration(args);
-		job_configuration.amMemory = 256;
-		job_configuration.containerMemory = 256;
-		job_configuration.numContainers = 3;
-		job_configuration.zookeeper = "172.16.8.97:2181,172.16.8.98:2181,172.16.8.99:2181";
-		job_configuration.topic = "infogen_topic_tracking";
-		job_configuration.group = "infogen_etl";
-		job_configuration.mapper_clazz = (Class<? extends InfoGen_Mapper>) Class.forName("com.infogen.etl.Kafka_To_Hdfs_Mapper");
-		job_configuration.parameters = "hdfs://spark101:8020/infogen/output/";
+		// job_configuration.amMemory = 256;
+		// job_configuration.containerMemory = 256;
+		// job_configuration.numContainers = 3;
+		// job_configuration.zookeeper = "172.16.8.97:2181,172.16.8.98:2181,172.16.8.99:2181";
+		// job_configuration.topic = "infogen_topic_tracking";
+		// job_configuration.group = "infogen_etl";
+		// @SuppressWarnings("unchecked")
+		// Class<? extends InfoGen_Mapper> mapper_clazz = (Class<? extends InfoGen_Mapper>) Class.forName("com.infogen.etl.Kafka_To_Hdfs_Mapper");
+		// job_configuration.mapper_clazz = mapper_clazz;
+		// job_configuration.parameters = "hdfs://spark101:8020/infogen/output/";
+		if (job_configuration.zookeeper == null || job_configuration.topic == null || job_configuration.group == null) {
+			LOGGER.error("#没有设置参数");
+			printUsage();
+			return;
+		}
+		if (job_configuration.parameters == null) {
+			job_configuration.parameters = "";
+		}
 		InfoGen_Job infogen_job = new InfoGen_Job(job_configuration, "infogen_etl_kafka_to_hdfs_lzo");
 		infogen_job.submit();
 	}
@@ -53,8 +61,6 @@ public class Kafka_To_Hdfs_Yarn {
 		Job_Configuration job_configuration = new Job_Configuration();
 		LOGGER.info("#初始化Client配置");
 		if (args.length == 0) {
-			LOGGER.error("#没有设置参数");
-			printUsage();
 			return job_configuration;
 		}
 

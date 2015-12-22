@@ -11,6 +11,7 @@ import com.infogen.hdfs.InfoGen_OutputFormat;
 import com.infogen.mapper.InfoGen_Mapper;
 
 /**
+ * 
  * @author larry/larrylv@outlook.com/创建时间 2015年12月10日 下午2:15:29
  * @since 1.0
  * @version 1.0

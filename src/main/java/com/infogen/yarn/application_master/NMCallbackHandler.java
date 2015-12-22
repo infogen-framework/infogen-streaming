@@ -13,6 +13,8 @@ import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 
 /**
+ * node manager 的回调处理
+ * 
  * @author larry/larrylv@outlook.com/创建时间 2015年12月3日 下午5:22:57
  * @since 1.0
  * @version 1.0

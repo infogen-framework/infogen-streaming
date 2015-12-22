@@ -8,20 +8,18 @@ import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Logger;
 
 /**
+ * 针对kafka实现使用InfoGen_KafkaLZOOutputStream写入数据的OutputFormat
  * @author larry/larrylv@outlook.com/创建时间 2015年12月15日 上午11:16:19
  * @since 1.0
  * @version 1.0
  */
 public class InfoGen_KafkaLZOOutputFormat implements InfoGen_OutputFormat {
 	private static Logger LOGGER = Logger.getLogger(InfoGen_KafkaLZOOutputFormat.class);
-	private ConcurrentHashMap<String, InfoGen_LZOOutputStream> map = new ConcurrentHashMap<>(10000);
+	private ConcurrentHashMap<String, InfoGen_KafkaLZOOutputStream> map = new ConcurrentHashMap<>(10000);
 	private Long commit_offset;
-	@SuppressWarnings("unused")
-	private String topic;
 	private Integer partition;
 
-	public InfoGen_KafkaLZOOutputFormat(String topic, Integer partition) {
-		this.topic = topic;
+	public InfoGen_KafkaLZOOutputFormat(Integer partition) {
 		this.partition = partition;
 	}
 
@@ -35,13 +33,13 @@ public class InfoGen_KafkaLZOOutputFormat implements InfoGen_OutputFormat {
 
 		String full_path = new StringBuilder(path).append("-").append(partition).append(".").append(commit_offset).toString();
 
-		InfoGen_LZOOutputStream infogen_hdfs_lzooutputstream = map.get(path);
+		InfoGen_KafkaLZOOutputStream infogen_hdfs_lzooutputstream = map.get(path);
 		for (;;) {// 尾递归优化代码可读性差，用循环代替
 			try {
 				if (infogen_hdfs_lzooutputstream != null && infogen_hdfs_lzooutputstream.write_line(message)) {
 					break;
 				} else {
-					infogen_hdfs_lzooutputstream = new InfoGen_LZOOutputStream(new Path(full_path));
+					infogen_hdfs_lzooutputstream = new InfoGen_KafkaLZOOutputStream(new Path(full_path));
 					map.put(path, infogen_hdfs_lzooutputstream);
 				}
 			} catch (IllegalArgumentException | IOException e) {
@@ -66,7 +64,7 @@ public class InfoGen_KafkaLZOOutputFormat implements InfoGen_OutputFormat {
 
 	public Boolean close_all() {
 		Boolean flag = true;
-		for (Entry<String, InfoGen_LZOOutputStream> entry : map.entrySet()) {
+		for (Entry<String, InfoGen_KafkaLZOOutputStream> entry : map.entrySet()) {
 			map.remove(entry.getKey());
 			try {
 				entry.getValue().close();
