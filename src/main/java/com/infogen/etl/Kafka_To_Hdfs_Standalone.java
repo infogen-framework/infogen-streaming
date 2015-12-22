@@ -32,11 +32,6 @@ public class Kafka_To_Hdfs_Standalone {
 		job_configuration.mapper_clazz = mapper_clazz;
 		job_configuration.parameters = "hdfs://spark101:8020/infogen/output/";
 		job_configuration.numContainers = 5;
-		if (job_configuration.zookeeper == null || job_configuration.topic == null || job_configuration.group == null || job_configuration.mapper_clazz == null) {
-			LOGGER.error("#没有设置参数");
-			printUsage();
-			return;
-		}
 
 		for (int i = 0; i < job_configuration.numContainers; i++) {
 			new Thread(() -> {
