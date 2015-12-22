@@ -65,12 +65,11 @@ public class InfoGen_Job {
 	public InfoGen_Job(Job_Configuration job_configuration, String app_name) {
 		this.job_configuration = job_configuration;
 		this.app_name = app_name == null ? "infogen" : app_name;
-
 	}
 
 	public void submit() {
-		if (job_configuration.zookeeper == null || job_configuration.topic == null || job_configuration.group == null || job_configuration.output == null) {
-			LOGGER.error("#没有设置参数zookeeper,topic,group,output");
+		if (job_configuration.zookeeper == null || job_configuration.topic == null || job_configuration.group == null || job_configuration.mapper == null || job_configuration.output == null) {
+			LOGGER.error("#没有设置参数zookeeper,topic,group,mapper,output");
 			Job_Configuration.printUsage();
 			return;
 		}

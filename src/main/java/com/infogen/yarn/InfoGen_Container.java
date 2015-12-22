@@ -28,7 +28,13 @@ public class InfoGen_Container {
 		return bytes / MEGABYTE;
 	}
 
-	public void run(final Job_Configuration job_configuration) throws ClassNotFoundException, IOException {
+	private Job_Configuration job_configuration;
+
+	public InfoGen_Container(Job_Configuration job_configuration) {
+		this.job_configuration = job_configuration;
+	}
+
+	public void submit() throws IOException {
 		String zookeeper = job_configuration.zookeeper;
 		String topic = job_configuration.topic;
 		String group = job_configuration.group;
@@ -36,8 +42,8 @@ public class InfoGen_Container {
 		Class<? extends InfoGen_Mapper> mapper_clazz = job_configuration.mapper;
 		String parameters = job_configuration.parameters;
 
-		if (topic == null || zookeeper == null || group == null || mapper_clazz == null || output == null) {
-			LOGGER.error("参数不能为空");
+		if (zookeeper == null || topic == null || group == null || mapper_clazz == null || output == null) {
+			LOGGER.error("#没有设置参数zookeeper,topic,group,mapper,output");
 			Job_Configuration.printUsage();
 			return;
 		}
@@ -86,7 +92,7 @@ public class InfoGen_Container {
 
 	public static void main(String[] args) throws IOException, ParseException, ClassNotFoundException {
 		Job_Configuration job_configuration = Job_Configuration.get_configuration(args);
-		InfoGen_Container infogen_container = new InfoGen_Container();
-		infogen_container.run(job_configuration);
+		InfoGen_Container infogen_container = new InfoGen_Container(job_configuration);
+		infogen_container.submit();
 	}
 }

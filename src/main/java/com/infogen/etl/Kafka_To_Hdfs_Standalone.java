@@ -29,8 +29,8 @@ public class Kafka_To_Hdfs_Standalone {
 		for (int i = 0; i < job_configuration.numContainers; i++) {
 			new Thread(() -> {
 				try {
-					InfoGen_Container infogen_container = new InfoGen_Container();
-					infogen_container.run(job_configuration);
+					InfoGen_Container infogen_container = new InfoGen_Container(job_configuration);
+					infogen_container.submit();
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
