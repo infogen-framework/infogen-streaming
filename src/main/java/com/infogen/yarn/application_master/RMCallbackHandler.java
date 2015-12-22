@@ -33,6 +33,7 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 
 import com.infogen.yarn.Constants;
+import com.infogen.yarn.Job_Configuration;
 
 /**
  * resource manager 的回调处理
@@ -45,7 +46,7 @@ public class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
 	private static final Log LOGGER = LogFactory.getLog(RMCallbackHandler.class);
 
 	private final ApplicationMaster AM;
-	private final ApplicationMaster_Configuration applicationmaster_configuration;
+	private final Job_Configuration job_configuration;
 	private final ApplicationAttemptId appAttemptID;
 	private final NMCallbackHandler nmcallbackhandler;
 	private AMRMClientAsync<ContainerRequest> amRMClient;
@@ -59,9 +60,9 @@ public class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
 		this.nmClientAsync = nmClientAsync;
 	}
 
-	public RMCallbackHandler(ApplicationMaster applicationMaster, ApplicationMaster_Configuration applicationmaster_configuration, NMCallbackHandler nmcallbackhandler, ApplicationAttemptId appAttemptID) {
+	public RMCallbackHandler(ApplicationMaster applicationMaster, Job_Configuration job_configuration, NMCallbackHandler nmcallbackhandler, ApplicationAttemptId appAttemptID) {
 		this.AM = applicationMaster;
-		this.applicationmaster_configuration = applicationmaster_configuration;
+		this.job_configuration = job_configuration;
 		this.nmcallbackhandler = nmcallbackhandler;
 		this.appAttemptID = appAttemptID;
 	}
@@ -92,8 +93,8 @@ public class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
 		}
 
 		// ask for more containers if ContainerExitStatus.ABORTED
-		LOGGER.info("#numTotalContainers: " + applicationmaster_configuration.numTotalContainers + ", numRequestedContainers: " + AM.numRequestedContainers.get());
-		int askCount = applicationmaster_configuration.numTotalContainers - AM.numRequestedContainers.get();
+		LOGGER.info("#numTotalContainers: " + job_configuration.numContainers + ", numRequestedContainers: " + AM.numRequestedContainers.get());
+		int askCount = job_configuration.numContainers - AM.numRequestedContainers.get();
 		AM.numRequestedContainers.addAndGet(askCount);
 		LOGGER.info("#请求container数量: " + askCount);
 		for (int i = 0; i < askCount; ++i) {
@@ -130,7 +131,7 @@ public class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
 	@Override
 	public float getProgress() {
 		// set progress to deliver to RM on next heartbeat
-		float progress = (float) AM.numCompletedContainers.get() / applicationmaster_configuration.numTotalContainers;
+		float progress = (float) AM.numCompletedContainers.get() / job_configuration.numContainers;
 		return progress;
 	}
 
@@ -172,14 +173,14 @@ public class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
 			}
 			LOGGER.info("#environment :" + classPathEnv.toString());
 			environment.put("CLASSPATH", classPathEnv.toString());
-			environment.put("USER", applicationmaster_configuration.user);
+			environment.put("USER", job_configuration.user);
 
 			// Set the local resources
 			Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
 			try {
 				FileSystem fs = FileSystem.newInstance(conf);
 				ApplicationId appId = this.container.getId().getApplicationAttemptId().getApplicationId();
-				Path dst = new Path(fs.makeQualified(new Path("/user/" + applicationmaster_configuration.user)), applicationmaster_configuration.app_name + "/" + appId + "/" + Constants.JAR_NAME);
+				Path dst = new Path(fs.makeQualified(new Path("/user/" + job_configuration.user)), job_configuration.app_name + "/" + appId + "/" + Constants.JAR_NAME);
 				LOGGER.info("#ocalResources:" + dst);
 				FileStatus scFileStatus = fs.getFileStatus(dst);
 				LocalResource scRsrc = LocalResource.newInstance(ConverterUtils.getYarnUrlFromURI(dst.toUri()), LocalResourceType.FILE, LocalResourceVisibility.APPLICATION, scFileStatus.getLen(), scFileStatus.getModificationTime());
@@ -191,15 +192,15 @@ public class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
 			// Set the necessary command to execute on the allocated container
 			Vector<CharSequence> vargs = new Vector<CharSequence>(5);
 			vargs.add(Environment.JAVA_HOME.$$() + "/bin/java");
-			vargs.add("-Xmx" + applicationmaster_configuration.containerMemory + "m");
+			vargs.add("-Xmx" + job_configuration.containerMemory + "m");
 			vargs.add(Constants.JAVA_APPLICATION);
-			vargs.add("--zookeeper " + String.valueOf(applicationmaster_configuration.zookeeper));
-			vargs.add("--topic " + String.valueOf(applicationmaster_configuration.topic));
-			vargs.add("--group " + String.valueOf(applicationmaster_configuration.group));
-			vargs.add("--mapper_clazz " + String.valueOf(applicationmaster_configuration.mapper_clazz.getName()));
-			vargs.add("--output " + String.valueOf(applicationmaster_configuration.output));
-			if (applicationmaster_configuration.parameters != null && !applicationmaster_configuration.parameters.isEmpty()) {
-				vargs.add("--parameters " + String.valueOf(applicationmaster_configuration.parameters));
+			vargs.add("--zookeeper " + String.valueOf(job_configuration.zookeeper));
+			vargs.add("--topic " + String.valueOf(job_configuration.topic));
+			vargs.add("--group " + String.valueOf(job_configuration.group));
+			vargs.add("--mapper " + String.valueOf(job_configuration.mapper.getName()));
+			vargs.add("--output " + String.valueOf(job_configuration.output));
+			if (job_configuration.parameters != null && !job_configuration.parameters.isEmpty()) {
+				vargs.add("--parameters " + String.valueOf(job_configuration.parameters));
 			}
 			vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stdout");
 			vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stderr");

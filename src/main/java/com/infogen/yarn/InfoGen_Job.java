@@ -69,6 +69,12 @@ public class InfoGen_Job {
 	}
 
 	public void submit() {
+		if (job_configuration.zookeeper == null || job_configuration.topic == null || job_configuration.group == null || job_configuration.output == null) {
+			LOGGER.error("#没有设置参数zookeeper,topic,group,output");
+			Job_Configuration.printUsage();
+			return;
+		}
+
 		DefaultEntry<ApplicationId, YarnClient> entry = null;
 		try {
 			entry = run();
@@ -95,7 +101,7 @@ public class InfoGen_Job {
 		for (NodeReport node : clusterNodeReports) {
 			LOGGER.info("#nodeId=" + node.getNodeId() + ", nodeAddress" + node.getHttpAddress() + ", nodeRackName" + node.getRackName() + ", nodeNumContainers" + node.getNumContainers());
 		}
-		QueueInfo queueInfo = yarnClient.getQueueInfo(job_configuration.amQueue);
+		QueueInfo queueInfo = yarnClient.getQueueInfo(job_configuration.queue);
 		LOGGER.info("#队列信息:  queueName=" + queueInfo.getQueueName() + ", queueCurrentCapacity=" + queueInfo.getCurrentCapacity() + ", queueMaxCapacity=" + queueInfo.getMaximumCapacity() + ", queueApplicationCount=" + queueInfo.getApplications().size() + ", queueChildQueueCount=" + queueInfo.getChildQueues().size());
 		List<QueueUserACLInfo> listAclInfo = yarnClient.getQueueAclsInfo();
 		for (QueueUserACLInfo aclInfo : listAclInfo) {
@@ -131,8 +137,8 @@ public class InfoGen_Job {
 			job_configuration.amVCores = maxVCores;
 		}
 		appContext.setResource(Resource.newInstance(job_configuration.amMemory, job_configuration.amVCores));
-		appContext.setPriority(Priority.newInstance(job_configuration.amPriority));
-		appContext.setQueue(job_configuration.amQueue);
+		appContext.setPriority(Priority.newInstance(job_configuration.priority));
+		appContext.setQueue(job_configuration.queue);
 
 		//////////////////////////////////////////////// 获取amContainer
 		Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
@@ -217,22 +223,19 @@ public class InfoGen_Job {
 		vargs.add(Environment.JAVA_HOME.$$() + "/bin/java");
 		vargs.add("-Xmx" + job_configuration.amMemory + "m");
 		vargs.add(Constants.APPLICATIONMASTER_CLASS);
+		vargs.add("--user " + String.valueOf(job_configuration.user));
 		vargs.add("--container_memory " + String.valueOf(job_configuration.containerMemory));
 		vargs.add("--container_vcores " + String.valueOf(job_configuration.containerVirtualCores));
 		vargs.add("--num_containers " + String.valueOf(job_configuration.numContainers));
-		vargs.add("--user " + String.valueOf(job_configuration.user));
 
 		vargs.add("--app_name " + String.valueOf(app_name));
 		vargs.add("--zookeeper " + String.valueOf(job_configuration.zookeeper));
 		vargs.add("--topic " + String.valueOf(job_configuration.topic));
 		vargs.add("--group " + String.valueOf(job_configuration.group));
-		vargs.add("--mapper_clazz " + String.valueOf(job_configuration.mapper_clazz.getName()));
+		vargs.add("--mapper " + String.valueOf(job_configuration.mapper.getName()));
 		vargs.add("--output " + String.valueOf(job_configuration.output));
 		if (job_configuration.parameters != null && !job_configuration.parameters.isEmpty()) {
 			vargs.add("--parameters " + new sun.misc.BASE64Encoder().encode(job_configuration.parameters.getBytes()));
-		}
-		if (job_configuration.debugFlag) {
-			vargs.add("--debug");
 		}
 		vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/AppMaster.stdout");
 		vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/AppMaster.stderr");

@@ -38,6 +38,7 @@ import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.log4j.LogManager;
 
 import com.infogen.util.DefaultEntry;
+import com.infogen.yarn.Job_Configuration;
 
 /**
  * ApplicationMaster用于启动和维护Container
@@ -57,7 +58,7 @@ public class ApplicationMaster {
 		DS_APP_ATTEMPT, DS_CONTAINER
 	}
 
-	protected ApplicationMaster_Configuration applicationmaster_configuration;
+	protected Job_Configuration job_configuration;
 	// Configuration
 	protected Configuration conf = new YarnConfiguration();
 
@@ -69,8 +70,8 @@ public class ApplicationMaster {
 	protected final AtomicInteger numFailedContainers = new AtomicInteger();
 	protected final List<Thread> launchThreads = new ArrayList<Thread>();
 
-	public ApplicationMaster(ApplicationMaster_Configuration applicationmaster_configuration) throws ParseException {
-		this.applicationmaster_configuration = applicationmaster_configuration;
+	public ApplicationMaster(Job_Configuration job_configuration) throws ParseException {
+		this.job_configuration = job_configuration;
 	}
 
 	/**
@@ -81,7 +82,8 @@ public class ApplicationMaster {
 		ApplicationMaster appMaster = null;
 		DefaultEntry<AMRMClientAsync<ContainerRequest>, NMClientAsync> entry = null;
 		try {
-			appMaster = new ApplicationMaster(new ApplicationMaster_Configuration(args));
+			Job_Configuration job_configuration = Job_Configuration.get_configuration(args);
+			appMaster = new ApplicationMaster(job_configuration);
 			entry = appMaster.run();
 		} catch (Throwable t) {
 			LOGGER.fatal("#Error running ApplicationMaster", t);
@@ -155,7 +157,7 @@ public class ApplicationMaster {
 		credentials();
 
 		NMCallbackHandler nmcallbackhandler = new NMCallbackHandler(this);
-		RMCallbackHandler allocListener = new RMCallbackHandler(this, applicationmaster_configuration, nmcallbackhandler, appAttemptID);
+		RMCallbackHandler allocListener = new RMCallbackHandler(this, job_configuration, nmcallbackhandler, appAttemptID);
 
 		AMRMClientAsync<ContainerRequest> amRMClient = AMRMClientAsync.createAMRMClientAsync(1000, allocListener);
 		amRMClient.init(conf);
@@ -172,38 +174,38 @@ public class ApplicationMaster {
 		RegisterApplicationMasterResponse response = amRMClient.registerApplicationMaster(NetUtils.getHostname(), -1, "");
 
 		int maxMem = response.getMaximumResourceCapability().getMemory();
-		if (applicationmaster_configuration.containerMemory > maxMem) {
-			LOGGER.info("#Container memory 配置过多:" + applicationmaster_configuration.containerMemory + ", 使用最大值:" + maxMem);
-			applicationmaster_configuration.containerMemory = maxMem;
+		if (job_configuration.containerMemory > maxMem) {
+			LOGGER.info("#Container memory 配置过多:" + job_configuration.containerMemory + ", 使用最大值:" + maxMem);
+			job_configuration.containerMemory = maxMem;
 		}
 		int maxVCores = response.getMaximumResourceCapability().getVirtualCores();
-		if (applicationmaster_configuration.containerVirtualCores > maxVCores) {
-			LOGGER.info("#Container  virtual cores 配置过多:" + applicationmaster_configuration.containerVirtualCores + ", 使用最大值:" + maxVCores);
-			applicationmaster_configuration.containerVirtualCores = maxVCores;
+		if (job_configuration.containerVirtualCores > maxVCores) {
+			LOGGER.info("#Container  virtual cores 配置过多:" + job_configuration.containerVirtualCores + ", 使用最大值:" + maxVCores);
+			job_configuration.containerVirtualCores = maxVCores;
 		}
 
 		List<Container> previousAMRunningContainers = response.getContainersFromPreviousAttempts();
 		LOGGER.info("#appattemptid:" + appAttemptID + " 使用 " + previousAMRunningContainers.size() + " 个已经注册的containers.");
 		numAllocatedContainers.addAndGet(previousAMRunningContainers.size());
 
-		int numTotalContainersToRequest = applicationmaster_configuration.numTotalContainers - previousAMRunningContainers.size();
+		int numTotalContainersToRequest = job_configuration.numContainers - previousAMRunningContainers.size();
 		for (int i = 0; i < numTotalContainersToRequest; ++i) {
 			amRMClient.addContainerRequest(setupContainerAskForRM());
 		}
-		numRequestedContainers.set(applicationmaster_configuration.numTotalContainers);
+		numRequestedContainers.set(job_configuration.numContainers);
 
 		return new DefaultEntry<AMRMClientAsync<ContainerRequest>, NMClientAsync>(amRMClient, nmClientAsync);
 	}
 
 	protected ContainerRequest setupContainerAskForRM() {
-		Priority pri = Priority.newInstance(applicationmaster_configuration.containerPriority);
-		Resource capability = Resource.newInstance(applicationmaster_configuration.containerMemory, applicationmaster_configuration.containerVirtualCores);
+		Priority pri = Priority.newInstance(job_configuration.priority);
+		Resource capability = Resource.newInstance(job_configuration.containerMemory, job_configuration.containerVirtualCores);
 		ContainerRequest request = new ContainerRequest(capability, null, null, pri);
 		return request;
 	}
 
 	private void monitoring(AMRMClientAsync<ContainerRequest> amRMClient, NMClientAsync nmClientAsync) {
-		while (numCompletedContainers.get() != applicationmaster_configuration.numTotalContainers) {
+		while (numCompletedContainers.get() != job_configuration.numContainers) {
 			try {
 				Thread.sleep(1000);
 			} catch (InterruptedException ex) {
@@ -217,7 +219,7 @@ public class ApplicationMaster {
 				amRMClient.unregisterApplicationMaster(FinalApplicationStatus.SUCCEEDED, null, null);
 				amRMClient.stop();
 			} else {
-				String appMessage = "#Diagnostics." + ", total=" + applicationmaster_configuration.numTotalContainers + ", completed=" + numCompletedContainers.get() + ", allocated=" + numAllocatedContainers.get() + ", failed=" + numFailedContainers.get();
+				String appMessage = "#Diagnostics." + ", total=" + job_configuration.numContainers + ", completed=" + numCompletedContainers.get() + ", allocated=" + numAllocatedContainers.get() + ", failed=" + numFailedContainers.get();
 				LOGGER.info("#存在错误任务");
 				LOGGER.info(appMessage);
 				amRMClient.unregisterApplicationMaster(FinalApplicationStatus.FAILED, appMessage, null);

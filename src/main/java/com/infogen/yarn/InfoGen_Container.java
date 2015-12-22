@@ -2,10 +2,6 @@ package com.infogen.yarn;
 
 import java.io.IOException;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.GnuParser;
-import org.apache.commons.cli.HelpFormatter;
-import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -32,12 +28,20 @@ public class InfoGen_Container {
 		return bytes / MEGABYTE;
 	}
 
-	public void run(final String zookeeper, final String topic, final String group, final Class<? extends InfoGen_Mapper> infogen_mapper_class, final String output, final String parameters) throws ClassNotFoundException, IOException {
-		if (topic == null || zookeeper == null || group == null || infogen_mapper_class == null || output == null) {
+	public void run(final Job_Configuration job_configuration) throws ClassNotFoundException, IOException {
+		String zookeeper = job_configuration.zookeeper;
+		String topic = job_configuration.topic;
+		String group = job_configuration.group;
+		String output = job_configuration.output;
+		Class<? extends InfoGen_Mapper> mapper_clazz = job_configuration.mapper;
+		String parameters = job_configuration.parameters;
+
+		if (topic == null || zookeeper == null || group == null || mapper_clazz == null || output == null) {
 			LOGGER.error("参数不能为空");
-			printUsage(opts);
+			Job_Configuration.printUsage();
 			return;
 		}
+
 		LOGGER.error("#InfoGen_Container启动");
 		Long freeMemory = bytesToMegabytes(Runtime.getRuntime().freeMemory());
 		Long totalMemory = bytesToMegabytes(Runtime.getRuntime().totalMemory());
@@ -60,7 +64,7 @@ public class InfoGen_Container {
 		Long start_offset = null;
 		for (;;) {
 			try {
-				start_offset = new InfoGen_Consumer().start(zookeeper, topic, group, start_offset, AUTO_OFFSET_RESET.smallest.name(), infogen_mapper_class,output, parameters);
+				start_offset = new InfoGen_Consumer().start(zookeeper, topic, group, start_offset, AUTO_OFFSET_RESET.smallest.name(), mapper_clazz, output, parameters);
 			} catch (NoPartition_Exception e) {
 				LOGGER.info("#没有获取到partition，退出ETL", e);
 				return;
@@ -80,36 +84,9 @@ public class InfoGen_Container {
 		}
 	}
 
-	// Command line options
-	private static Options opts = builder_applicationmaster();
-
-	@SuppressWarnings("unchecked")
 	public static void main(String[] args) throws IOException, ParseException, ClassNotFoundException {
-		CommandLine cliParser = new GnuParser().parse(opts, args);
-		String zookeeper = cliParser.getOptionValue("zookeeper");
-		String topic = cliParser.getOptionValue("topic");
-		String group = cliParser.getOptionValue("group");
-		String mapper_clazz = cliParser.getOptionValue("mapper_clazz");
-		String output = cliParser.getOptionValue("output");
-		@SuppressWarnings("restriction")
-		String parameters = new String(new sun.misc.BASE64Decoder().decodeBuffer(cliParser.getOptionValue("parameters", "")));
-
+		Job_Configuration job_configuration = Job_Configuration.get_configuration(args);
 		InfoGen_Container infogen_container = new InfoGen_Container();
-		infogen_container.run(zookeeper, topic, group, (Class<? extends InfoGen_Mapper>) Class.forName(mapper_clazz), output, parameters);
-	}
-
-	public static Options builder_applicationmaster() {
-		Options opts = new Options();
-		opts.addOption("zookeeper", true, "zookeeper");
-		opts.addOption("topic", true, "topic");
-		opts.addOption("group", true, "group");
-		opts.addOption("mapper_clazz", true, "mapper_clazz");
-		opts.addOption("output", true, "output");
-		opts.addOption("parameters", true, "parameters");
-		return opts;
-	}
-
-	private static void printUsage(Options opts) {
-		new HelpFormatter().printHelp("InfoGen_Container", opts);
+		infogen_container.run(job_configuration);
 	}
 }
