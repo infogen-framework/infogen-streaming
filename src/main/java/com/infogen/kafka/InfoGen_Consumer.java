@@ -64,7 +64,7 @@ public class InfoGen_Consumer {
 	public InfoGen_Consumer() {
 	}
 
-	public Long start(final String zookeeper, final String topic, final String group, final Long start_offset, final String auto_offset_reset, final Class<? extends InfoGen_Mapper> infogen_mapper_class, final String parameters) throws IOException, InstantiationException, NoPartition_Exception, IllegalAccessException {
+	public Long start(final String zookeeper, final String topic, final String group, final Long start_offset, final String auto_offset_reset, final Class<? extends InfoGen_Mapper> infogen_mapper_class, final String output, final String parameters) throws IOException, InstantiationException, NoPartition_Exception, IllegalAccessException {
 		this.infogen_zookeeper.start_zookeeper(zookeeper, null);
 
 		this.topic = topic;
@@ -129,7 +129,7 @@ public class InfoGen_Consumer {
 
 			// InfoGen_Mapper
 			InfoGen_Mapper mapper = infogen_mapper_class.newInstance();
-			mapper.config(topic, partition, parameters);
+			mapper.config(topic, partition, output, parameters);
 
 			// InfoGen_OutputFormat
 			InfoGen_OutputFormat infogen_kafkalzooutputformat = new InfoGen_KafkaLZOOutputFormat(partition);

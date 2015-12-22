@@ -39,6 +39,7 @@ public class Job_Configuration {
 	public String topic;
 	public String group;
 	public String zookeeper;
+	public String output;
 	public String parameters;
 	//
 

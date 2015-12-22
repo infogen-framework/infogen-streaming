@@ -21,8 +21,7 @@ public class Kafka_To_Hdfs_Mapper extends InfoGen_Mapper {
 	private static Logger LOGGER = Logger.getLogger(Kafka_To_Hdfs_Mapper.class);
 	public String topic;
 	public Integer partition;
-	public String parameters;
-
+	public String output;
 	public String path_prefix = "";
 
 	/*
@@ -31,12 +30,11 @@ public class Kafka_To_Hdfs_Mapper extends InfoGen_Mapper {
 	 * @see com.infogen.mapper.InfoGen_Mapper#config(java.lang.String, java.lang.Integer, java.lang.String)
 	 */
 	@Override
-	public void config(String topic, Integer partition, String parameters) {
+	public void config(String topic, Integer partition, String output, String parameters) {
 		this.topic = topic;
 		this.partition = partition;
-		this.parameters = parameters;
-
-		path_prefix = new StringBuilder(parameters).append(topic).append("/").toString();
+		this.output = output;
+		path_prefix = new StringBuilder(output).append(topic).append("/").toString();
 	};
 
 	private final ZoneId zoneidPlus8 = ZoneId.of("UTC+8"); // UTC+8

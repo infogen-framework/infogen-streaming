@@ -32,8 +32,8 @@ public class InfoGen_Container {
 		return bytes / MEGABYTE;
 	}
 
-	public void run(final String zookeeper, final String topic, final String group, final Class<? extends InfoGen_Mapper> infogen_mapper_class, final String parameters) throws ClassNotFoundException, IOException {
-		if (topic == null || zookeeper == null || group == null || infogen_mapper_class == null || parameters == null || parameters.trim().isEmpty()) {
+	public void run(final String zookeeper, final String topic, final String group, final Class<? extends InfoGen_Mapper> infogen_mapper_class, final String output, final String parameters) throws ClassNotFoundException, IOException {
+		if (topic == null || zookeeper == null || group == null || infogen_mapper_class == null || output == null) {
 			LOGGER.error("参数不能为空");
 			printUsage(opts);
 			return;
@@ -60,7 +60,7 @@ public class InfoGen_Container {
 		Long start_offset = null;
 		for (;;) {
 			try {
-				start_offset = new InfoGen_Consumer().start(zookeeper, topic, group, start_offset, AUTO_OFFSET_RESET.smallest.name(), infogen_mapper_class, parameters);
+				start_offset = new InfoGen_Consumer().start(zookeeper, topic, group, start_offset, AUTO_OFFSET_RESET.smallest.name(), infogen_mapper_class,output, parameters);
 			} catch (NoPartition_Exception e) {
 				LOGGER.info("#没有获取到partition，退出ETL", e);
 				return;
@@ -90,11 +90,12 @@ public class InfoGen_Container {
 		String topic = cliParser.getOptionValue("topic");
 		String group = cliParser.getOptionValue("group");
 		String mapper_clazz = cliParser.getOptionValue("mapper_clazz");
+		String output = cliParser.getOptionValue("output");
 		@SuppressWarnings("restriction")
 		String parameters = new String(new sun.misc.BASE64Decoder().decodeBuffer(cliParser.getOptionValue("parameters", "")));
 
 		InfoGen_Container infogen_container = new InfoGen_Container();
-		infogen_container.run(zookeeper, topic, group, (Class<? extends InfoGen_Mapper>) Class.forName(mapper_clazz), parameters);
+		infogen_container.run(zookeeper, topic, group, (Class<? extends InfoGen_Mapper>) Class.forName(mapper_clazz), output, parameters);
 	}
 
 	public static Options builder_applicationmaster() {
@@ -103,6 +104,7 @@ public class InfoGen_Container {
 		opts.addOption("topic", true, "topic");
 		opts.addOption("group", true, "group");
 		opts.addOption("mapper_clazz", true, "mapper_clazz");
+		opts.addOption("output", true, "output");
 		opts.addOption("parameters", true, "parameters");
 		return opts;
 	}

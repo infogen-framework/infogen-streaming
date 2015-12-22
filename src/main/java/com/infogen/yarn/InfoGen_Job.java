@@ -227,6 +227,7 @@ public class InfoGen_Job {
 		vargs.add("--topic " + String.valueOf(job_configuration.topic));
 		vargs.add("--group " + String.valueOf(job_configuration.group));
 		vargs.add("--mapper_clazz " + String.valueOf(job_configuration.mapper_clazz.getName()));
+		vargs.add("--output " + String.valueOf(job_configuration.output));
 		if (job_configuration.parameters != null && !job_configuration.parameters.isEmpty()) {
 			vargs.add("--parameters " + new sun.misc.BASE64Encoder().encode(job_configuration.parameters.getBytes()));
 		}

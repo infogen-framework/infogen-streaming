@@ -41,8 +41,8 @@ public class Kafka_To_Hdfs_Yarn {
 		// Class<? extends InfoGen_Mapper> mapper_clazz = (Class<? extends InfoGen_Mapper>) Class.forName("com.infogen.etl.Kafka_To_Hdfs_Mapper");
 		// job_configuration.mapper_clazz = mapper_clazz;
 		// job_configuration.parameters = "hdfs://spark101:8020/infogen/output/";
-		if (job_configuration.zookeeper == null || job_configuration.topic == null || job_configuration.group == null) {
-			LOGGER.error("#没有设置参数");
+		if (job_configuration.zookeeper == null || job_configuration.topic == null || job_configuration.group == null || job_configuration.output == null) {
+			LOGGER.error("#没有设置参数zookeeper,topic,group,output");
 			printUsage();
 			return;
 		}
@@ -133,6 +133,7 @@ public class Kafka_To_Hdfs_Yarn {
 		opts.addOption("topic", true, "topic");
 		opts.addOption("group", true, "group");
 		opts.addOption("mapper_clazz", true, "mapper_clazz");
+		opts.addOption("output", true, "output");
 		opts.addOption("parameters", true, "parameters");
 		return opts;
 	}

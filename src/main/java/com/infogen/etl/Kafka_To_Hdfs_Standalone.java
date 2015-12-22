@@ -30,14 +30,14 @@ public class Kafka_To_Hdfs_Standalone {
 		@SuppressWarnings("unchecked")
 		Class<? extends InfoGen_Mapper> mapper_clazz = (Class<? extends InfoGen_Mapper>) Class.forName("com.infogen.etl.Kafka_To_Hdfs_Mapper");
 		job_configuration.mapper_clazz = mapper_clazz;
-		job_configuration.parameters = "hdfs://spark101:8020/infogen/output/";
+		job_configuration.output = "hdfs://spark101:8020/infogen/output/";
 		job_configuration.numContainers = 5;
 
 		for (int i = 0; i < job_configuration.numContainers; i++) {
 			new Thread(() -> {
 				try {
 					InfoGen_Container infogen_container = new InfoGen_Container();
-					infogen_container.run(job_configuration.zookeeper, job_configuration.topic, job_configuration.group, job_configuration.mapper_clazz, job_configuration.parameters);
+					infogen_container.run(job_configuration.zookeeper, job_configuration.topic, job_configuration.group, job_configuration.mapper_clazz, job_configuration.output, job_configuration.parameters);
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -68,6 +68,7 @@ public class Kafka_To_Hdfs_Standalone {
 		@SuppressWarnings("unchecked")
 		Class<? extends InfoGen_Mapper> mapper_clazz = (Class<? extends InfoGen_Mapper>) Class.forName(cliParser.getOptionValue("mapper_clazz", null));
 		job_configuration.mapper_clazz = mapper_clazz;
+		job_configuration.output = cliParser.getOptionValue("output");
 		job_configuration.parameters = cliParser.getOptionValue("parameters", "");
 
 		job_configuration.numContainers = Integer.parseInt(cliParser.getOptionValue("num_containers", "1"));
@@ -84,6 +85,7 @@ public class Kafka_To_Hdfs_Standalone {
 		opts.addOption("topic", true, "topic");
 		opts.addOption("group", true, "group");
 		opts.addOption("mapper_clazz", true, "mapper_clazz");
+		opts.addOption("output", true, "output");
 		opts.addOption("parameters", true, "parameters");
 		return opts;
 	}
