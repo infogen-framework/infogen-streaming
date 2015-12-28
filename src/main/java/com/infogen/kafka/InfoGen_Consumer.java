@@ -3,15 +3,11 @@ package com.infogen.kafka;
 import java.io.IOException;
 import java.time.Clock;
 import java.util.Arrays;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Properties;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.common.Metric;
-import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.log4j.Logger;
 import org.apache.zookeeper.CreateMode;
@@ -157,11 +153,6 @@ public class InfoGen_Consumer {
 		props.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
 		@SuppressWarnings("resource")
 		KafkaConsumer<String, String> consumer = new KafkaConsumer<String, String>(props);
-		Map<MetricName, ? extends Metric> metrics = consumer.metrics();
-		for (Entry<MetricName, ? extends Metric> entry : metrics.entrySet()) {
-			System.out.println(entry.getKey().toString());
-			System.out.println(entry.getValue().metricName());
-		}
 		TopicPartition topic_partition = new TopicPartition(topic, partition);
 		consumer.assign(Arrays.asList(topic_partition));
 
