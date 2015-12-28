@@ -27,7 +27,7 @@ public class Kafka_To_Hdfs_Yarn {
 		// job_configuration.mapper_clazz = mapper_clazz;
 		// job_configuration.parameters = "hdfs://spark101:8020/infogen/output/";
 
-		InfoGen_Job infogen_job = new InfoGen_Job(job_configuration, "infogen_etl_kafka_to_hdfs_lzo");
+		InfoGen_Job infogen_job = new InfoGen_Job(job_configuration, job_configuration.app_name);
 		infogen_job.submit();
 	}
 

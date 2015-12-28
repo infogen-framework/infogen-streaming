@@ -7,9 +7,10 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.zookeeper.CreateMode;
 
+import com.infogen.exception.AutoOffsetReset_Exception;
 import com.infogen.exception.NoPartition_Exception;
-import com.infogen.kafka.InfoGen_Consumer;
 import com.infogen.kafka.InfoGen_Consumer.AUTO_OFFSET_RESET;
+import com.infogen.kafka.InfoGen_Consumer;
 import com.infogen.mapper.InfoGen_Mapper;
 import com.infogen.zookeeper.InfoGen_ZooKeeper;
 
@@ -70,12 +71,15 @@ public class InfoGen_Container {
 		Long start_offset = null;
 		for (;;) {
 			try {
-				start_offset = new InfoGen_Consumer().start(zookeeper, topic, group, start_offset, AUTO_OFFSET_RESET.smallest.name(), mapper_clazz, output, parameters);
+				start_offset = new InfoGen_Consumer().start(zookeeper, topic, group, start_offset, AUTO_OFFSET_RESET.latest.name(), mapper_clazz, output, parameters);
 			} catch (NoPartition_Exception e) {
 				LOGGER.info("#没有获取到partition，退出ETL", e);
 				return;
 			} catch (IllegalAccessException | InstantiationException e) {
 				LOGGER.error("#实例化InfoGen_Mapper失败，退出ETL", e);
+				return;
+			} catch (AutoOffsetReset_Exception e) {
+				LOGGER.info("#无效的Offset，退出ETL", e);
 				return;
 			} catch (IOException e) {
 				// zookeeper启动失败,session过期等引起的异常

@@ -71,7 +71,7 @@ public class Job_Configuration {
 			return job_configuration;
 		}
 
-		job_configuration.app_name = cliParser.getOptionValue("app_name", null);
+		job_configuration.app_name = cliParser.getOptionValue("app_name", "infogen_streaming");
 		job_configuration.zookeeper = cliParser.getOptionValue("zookeeper", null);
 		job_configuration.topic = cliParser.getOptionValue("topic", null);
 		job_configuration.group = cliParser.getOptionValue("group", null);

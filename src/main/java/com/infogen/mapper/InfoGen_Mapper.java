@@ -14,5 +14,5 @@ import com.infogen.hdfs.InfoGen_OutputFormat;
 public abstract class InfoGen_Mapper {
 	public abstract void config(final String topic, final Integer partition,String output, String parameters);
 
-	public abstract void mapper(final Long offset, String message, InfoGen_OutputFormat output) throws IllegalArgumentException, IOException;
+	public abstract void mapper(final Long offset,String key, String message, InfoGen_OutputFormat output) throws IllegalArgumentException, IOException;
 }
