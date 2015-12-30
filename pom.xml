@@ -4,7 +4,7 @@
 
 	<groupId>com.infogen</groupId>
 	<artifactId>infogen_streaming</artifactId>
-	<version>V2.2.00R151120</version>
+	<version>V2.5.00R151230</version>
 	<packaging>jar</packaging>
 
 	<name>infogen_streaming</name>
