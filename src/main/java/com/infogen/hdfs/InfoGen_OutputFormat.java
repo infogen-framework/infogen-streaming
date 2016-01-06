@@ -14,5 +14,5 @@ public interface InfoGen_OutputFormat {
 
 	public Boolean close_all();
 
-	public void setCommit_offset(Long commit_offset);
+	public void setStart_offset(Long start_offset);
 }

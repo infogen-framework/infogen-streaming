@@ -130,7 +130,6 @@ public class InfoGen_Consumer {
 
 			// InfoGen_OutputFormat
 			InfoGen_OutputFormat infogen_kafkalzooutputformat = new InfoGen_KafkaLZOOutputFormat(partition);
-			infogen_kafkalzooutputformat.setCommit_offset(commit_offset);
 
 			LOGGER.info("#执行ETL offset为：" + start_offset);
 			run(mapper, infogen_kafkalzooutputformat);
@@ -168,6 +167,7 @@ public class InfoGen_Consumer {
 			LOGGER.warn("#offset不存在-从最后的offset开始获取");
 			offset = latestOffset;
 		}
+		infogen_kafkalzooutputformat.setStart_offset(offset);
 		LOGGER.info("#offset：" + offset + ":earliestOffset-" + earliestOffset + " latestOffset-" + latestOffset);
 
 		Long fetch_size = 0l;
@@ -210,7 +210,7 @@ public class InfoGen_Consumer {
 					Stat set_data = infogen_zookeeper.set_data(InfoGen_ZooKeeper.offset(topic, group, partition), offset.toString().getBytes(), -1);
 					if (set_data != null) {
 						commit_offset = offset;
-						infogen_kafkalzooutputformat.setCommit_offset(commit_offset);
+						infogen_kafkalzooutputformat.setStart_offset(offset);
 						LOGGER.info("#更新offset成功 : commit_offset-" + commit_offset + " offset-" + offset);
 						break;
 					} else {

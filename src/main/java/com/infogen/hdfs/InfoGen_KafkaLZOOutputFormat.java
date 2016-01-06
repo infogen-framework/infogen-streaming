@@ -16,22 +16,22 @@ import org.apache.log4j.Logger;
 public class InfoGen_KafkaLZOOutputFormat implements InfoGen_OutputFormat {
 	private static Logger LOGGER = Logger.getLogger(InfoGen_KafkaLZOOutputFormat.class);
 	private ConcurrentHashMap<String, InfoGen_KafkaLZOOutputStream> map = new ConcurrentHashMap<>(10000);
-	private Long commit_offset;
+	private Long start_offset;
 	private Integer partition;
 
 	public InfoGen_KafkaLZOOutputFormat(Integer partition) {
 		this.partition = partition;
 	}
 
-	public void setCommit_offset(Long commit_offset) {
-		this.commit_offset = commit_offset;
+	public void setStart_offset(Long start_offset) {
+		this.start_offset = start_offset;
 	}
 
 	public void write_line(String path, String message) throws IllegalArgumentException, IOException {
 		Integer num_errors = 0;
 		Integer max_errors = 5;
 
-		String full_path = new StringBuilder(path).append("-").append(partition).append(".").append(commit_offset).toString();
+		String full_path = new StringBuilder(path).append("-").append(partition).append(".").append(start_offset).toString();
 
 		InfoGen_KafkaLZOOutputStream infogen_hdfs_lzooutputstream = map.get(path);
 		for (;;) {// 尾递归优化代码可读性差，用循环代替
