@@ -20,7 +20,6 @@ public class Kafka_To_Hdfs_Mapper extends InfoGen_Mapper {
 	private static Logger LOGGER = Logger.getLogger(Kafka_To_Hdfs_Mapper.class);
 	public String topic;
 	public Integer partition;
-	public String output;
 	public String path_prefix = "";
 
 	/*
@@ -32,7 +31,9 @@ public class Kafka_To_Hdfs_Mapper extends InfoGen_Mapper {
 	public void config(String topic, Integer partition, String output, String parameters) {
 		this.topic = topic;
 		this.partition = partition;
-		this.output = output;
+		if (!output.endsWith("/")) {
+			output = output.concat("/");
+		}
 		path_prefix = new StringBuilder(output).append(topic).append("/").toString();
 	};
 
