@@ -44,7 +44,7 @@ public class InfoGen_KafkaLZOOutputStream implements Delayed, InfoGen_OutputStre
 	private Path path;
 	private Path path_index;
 	private FileSystem fs;
-	private String suffix = ".finish";
+	private String suffix = ".lzo";
 	private DataOutputStream lzoOutputStream;
 
 	public static void main(String[] args) throws IllegalArgumentException, IOException {
@@ -56,13 +56,13 @@ public class InfoGen_KafkaLZOOutputStream implements Delayed, InfoGen_OutputStre
 	}
 
 	public InfoGen_KafkaLZOOutputStream(Path path) throws IOException {
+		path = path.suffix(suffix);
 		this.path = path;
 		this.path_index = path.suffix(LzoIndex.LZO_INDEX_SUFFIX);
 		this.fs = path.getFileSystem(configuration);
 
 		fs.delete(path, true);
-		fs.delete(path.suffix(suffix), true);
-		fs.delete(path.suffix(LzoIndex.LZO_INDEX_SUFFIX), true);
+		fs.delete(path_index, true);
 
 		LOGGER.info("#创建流-写入LZO文件并使用索引:" + path.toString());
 		FSDataOutputStream fileOut = fs.create(path, false);
@@ -94,14 +94,9 @@ public class InfoGen_KafkaLZOOutputStream implements Delayed, InfoGen_OutputStre
 				lzoOutputStream.close();
 				lzoOutputStream = null;
 
-				Path new_path = path.suffix(suffix);
-				fs.rename(path, new_path);
-
-				FileStatus stat = fs.getFileStatus(new_path);
+				FileStatus stat = fs.getFileStatus(path);
 				if (stat.getLen() <= (stat.getBlockSize() * 1.2)) {
 					fs.delete(path_index, false);
-				} else {
-					fs.rename(path_index, new_path.suffix(LzoIndex.LZO_INDEX_SUFFIX));
 				}
 			} else {
 				LOGGER.error("#流已经关闭-写入LZO文件并使用索引:" + path.toString());
