@@ -84,6 +84,9 @@ public class InfoGen_Container {
 			} catch (IOException e) {
 				// zookeeper启动失败,session过期等引起的异常
 				LOGGER.error("#zookeeper启动失败,session过期等引起的异常", e);
+			} catch (Exception e) {
+				LOGGER.error("#未知异常，退出ETL", e);
+				return;
 			}
 
 			try {

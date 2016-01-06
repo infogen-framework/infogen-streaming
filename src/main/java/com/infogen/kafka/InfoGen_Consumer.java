@@ -176,7 +176,7 @@ public class InfoGen_Consumer {
 		Integer max_number_io = 20;
 
 		long millis = Clock.systemUTC().millis();
-		Long max_uncommit_millis = 1000 * 60 * 5l;
+		Long max_uncommit_millis = 1000 * 60 * 30l;
 
 		for (;;) {
 			consumer.seek(topic_partition, offset);
