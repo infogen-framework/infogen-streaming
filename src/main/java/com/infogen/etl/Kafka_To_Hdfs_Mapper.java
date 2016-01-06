@@ -17,7 +17,6 @@ import com.infogen.mapper.InfoGen_Mapper;
  * @version 1.0
  */
 public class Kafka_To_Hdfs_Mapper extends InfoGen_Mapper {
-	@SuppressWarnings("unused")
 	private static Logger LOGGER = Logger.getLogger(Kafka_To_Hdfs_Mapper.class);
 	public String topic;
 	public Integer partition;
@@ -40,12 +39,17 @@ public class Kafka_To_Hdfs_Mapper extends InfoGen_Mapper {
 	private final ZoneId zoneidPlus8 = ZoneId.of("UTC+8"); // UTC+8
 
 	public void mapper(Long offset, String key, String message, InfoGen_OutputFormat output) throws IllegalArgumentException, IOException {
-		System.out.println(message);
 		String[] split = message.split(",");
 		if (split.length < 9) {
 			return;
 		}
-		LocalDateTime localdatetime = LocalDateTime.ofInstant(Instant.ofEpochMilli(Long.valueOf(split[9])), zoneidPlus8);
+		LocalDateTime localdatetime = null;
+		try {
+			localdatetime = LocalDateTime.ofInstant(Instant.ofEpochMilli(Long.valueOf(split[9])), zoneidPlus8);
+		} catch (Exception e) {
+			LOGGER.info(message, e);
+			return;
+		}
 		StringBuilder dir_stringbuilder = new StringBuilder(path_prefix);
 		dir_stringbuilder.append(localdatetime.getYear()).append("-").append(localdatetime.getMonthValue()).append("-").append(localdatetime.getDayOfMonth()).append("/");
 		dir_stringbuilder.append(localdatetime.getHour());
