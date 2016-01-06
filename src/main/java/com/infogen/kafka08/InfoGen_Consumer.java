@@ -47,7 +47,7 @@ public class InfoGen_Consumer {
 	private static Logger LOGGER = Logger.getLogger(InfoGen_Consumer.class);
 
 	public enum AUTO_OFFSET_RESET {
-		smallest,largest 
+		smallest, largest
 	}
 
 	private InfoGen_ZooKeeper infogen_zookeeper = new InfoGen_ZooKeeper();
