@@ -9,8 +9,8 @@ import org.apache.zookeeper.CreateMode;
 
 import com.infogen.exception.AutoOffsetReset_Exception;
 import com.infogen.exception.NoPartition_Exception;
-import com.infogen.kafka08.InfoGen_Consumer;
-import com.infogen.kafka08.InfoGen_Consumer.AUTO_OFFSET_RESET;
+import com.infogen.kafka09.InfoGen_Consumer;
+import com.infogen.kafka09.InfoGen_Consumer.AUTO_OFFSET_RESET;
 import com.infogen.mapper.InfoGen_Mapper;
 import com.infogen.zookeeper.InfoGen_ZooKeeper;
 
@@ -71,7 +71,7 @@ public class InfoGen_Container {
 		Long start_offset = null;
 		for (;;) {
 			try {
-				start_offset = new InfoGen_Consumer().start(zookeeper, topic, group, start_offset, AUTO_OFFSET_RESET.largest.name(), mapper_clazz, output, parameters);
+				start_offset = new InfoGen_Consumer().start(zookeeper, topic, group, start_offset, AUTO_OFFSET_RESET.earliest.name(), mapper_clazz, output, parameters);
 			} catch (NoPartition_Exception e) {
 				LOGGER.info("#没有获取到partition，退出ETL", e);
 				return;

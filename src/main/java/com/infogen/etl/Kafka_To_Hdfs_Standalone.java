@@ -17,10 +17,13 @@ public class Kafka_To_Hdfs_Standalone {
 
 	public static void main(String[] args) throws InterruptedException, ClassNotFoundException, ParseException {
 		Job_Configuration job_configuration = Job_Configuration.get_configuration(args);
+//		props.put("serializer.class", "kafka.serializer.StringEncoder");  
+//        props.put("metadata.broker.list", "192.168.202.34:9092,192.168.202.35:9092,192.168.202.36:9092");  
+//        props.put("zk.connect", "192.168.202.16:2181,192.168.202.17:2181,192.168.202.18:2181");
 		// job_configuration.zookeeper = "127.0.0.1:2181,127.0.0.1:2182,127.0.0.1:2183";
 		// job_configuration.topic = "topic6";
 		// job_configuration.group = "group1";
-		job_configuration.zookeeper = "172.16.8.97:2181,172.16.8.98:2181,172.16.8.99:2181";
+		job_configuration.zookeeper = "192.168.202.16:2181,192.168.202.17:2181,192.168.202.18:2181";//"172.16.8.97:2181,172.16.8.98:2181,172.16.8.99:2181";
 		job_configuration.topic = "infogen_topic_tracking";
 		job_configuration.group = "infogen_etl";
 		@SuppressWarnings("unchecked")
