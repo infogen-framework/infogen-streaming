@@ -1,4 +1,4 @@
-package com.infogen.kafka09;
+package com.infogen.kafka;
 
 import java.io.IOException;
 import java.time.Clock;
@@ -155,9 +155,9 @@ public class InfoGen_Consumer {
 		TopicPartition topic_partition = new TopicPartition(topic, partition);
 		consumer.assign(Arrays.asList(topic_partition));
 
-		consumer.seekToBeginning(topic_partition);
+		consumer.seekToBeginning(Arrays.asList(topic_partition));
 		Long earliestOffset = consumer.position(topic_partition);
-		consumer.seekToEnd(topic_partition);
+		consumer.seekToEnd(Arrays.asList(topic_partition));
 		Long latestOffset = consumer.position(topic_partition);
 
 		if (offset < earliestOffset) {
